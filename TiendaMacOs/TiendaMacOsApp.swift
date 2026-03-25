@@ -12,7 +12,15 @@ import SwiftData
 struct TiendaMacOsApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            Empleado.self,Cliente.self,Producto.self,
+            LoteProducto.self,
+            Categoria.self,
+            Proveedor.self,
+            Kardex.self,
+            Venta.self,
+            DetalleVenta.self,
+            
+            
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
