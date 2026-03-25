@@ -152,3 +152,22 @@ class Venta {
         self.cliente = cliente
     }
 }
+
+@Model
+class DetalleVenta {
+    var cantidad: Double  // Double para permitir kg, litros, etc.
+    var precioUnitarioSnapshot: Double // Precio al que se vendió en ese momento exacto
+    var subtotal: Double {
+        return cantidad * precioUnitarioSnapshot
+    }
+    
+    // Relaciones
+    var producto: Producto?
+    var venta: Venta?
+    
+    init(cantidad: Double, precio: Double, producto: Producto) {
+        self.cantidad = cantidad
+        self.precioUnitarioSnapshot = precio
+        self.producto = producto
+    }
+}
