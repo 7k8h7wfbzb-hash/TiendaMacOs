@@ -10,30 +10,28 @@ import SwiftData
 
 struct CategoriaView: View {
     @Environment(\.modelContext) private var modelContext
-    
     @Query(sort: \Categoria.nombre) private var categorias: [Categoria]
     
-    @State private var viewModelo: CategoriaViewModel?
     @State private var nombreCategoria = ""
-    
+    @State private var viewModelo: CategoriaViewModel?
+
     var body: some View {
         VStack(spacing: 20) {
             
-            // Título
             Text("Categorías")
                 .font(.largeTitle)
                 .bold()
             
-            // Panel de agregar nueva categoría
             HStack {
                 TextField("Nueva categoría", text: $nombreCategoria)
                     .textFieldStyle(.roundedBorder)
                     .frame(minWidth: 200)
                 
-                Button(action: {
-                    viewModelo?.guadarCategoria(nombre: nombreCategoria)
+                Button {
+                    guard let vm = viewModelo else { return }
+                    vm.guardarCategoria(nombre: nombreCategoria)
                     nombreCategoria = ""
-                }) {
+                } label: {
                     Label("Agregar", systemImage: "plus.circle.fill")
                         .font(.headline)
                 }
@@ -43,19 +41,21 @@ struct CategoriaView: View {
             
             Divider()
             
-            // Lista de categorías
-            List(categorias) { categoria in
+            List(categorias, id: \.self) { categoria in
                 HStack {
                     Text(categoria.nombre)
                         .font(.headline)
+                    
                     Spacer()
-                    Button(action: {
-                        viewModelo?.eliminarCategoria(categoria: categoria)
-                    }) {
+                    
+                    Button {
+                        guard let vm = viewModelo else { return }
+                        vm.eliminarCategoria(categoria: categoria)
+                    } label: {
                         Image(systemName: "trash")
                             .foregroundColor(.red)
                     }
-                    .buttonStyle(.borderless) // importante en macOS
+                    .buttonStyle(.borderless)
                 }
                 .padding(.vertical, 4)
             }
@@ -67,12 +67,11 @@ struct CategoriaView: View {
         .frame(minWidth: 400, minHeight: 500)
         .onAppear {
             if viewModelo == nil {
-                viewModelo = CategoriaViewModel(ModelConext: modelContext)
+                viewModelo = CategoriaViewModel(modelContext: modelContext)
             }
         }
     }
 }
-
 #Preview {
     CategoriaView()
         .modelContainer(for: [Categoria.self])

@@ -33,7 +33,7 @@ struct TiendaMacOsApp: App {
 
     var body: some Scene {
         WindowGroup {
-            
+            CategoriaView()
         }
         .modelContainer(sharedModelContainer)
     }

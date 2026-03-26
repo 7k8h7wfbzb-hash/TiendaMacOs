@@ -10,19 +10,19 @@ import SwiftData
 
 @Observable
 class CategoriaViewModel {
-    private var modelConext:ModelContext
+    private var modelContext: ModelContext
     
-    init(ModelConext: ModelContext) {
-        self.modelConext = ModelConext
+    init(modelContext: ModelContext) {
+        self.modelContext = modelContext
     }
     
-    func guadarCategoria(nombre:String){
+    func guardarCategoria(nombre: String) {
         guard !nombre.isEmpty else { return }
         let categoria = Categoria(nombre: nombre)
-         modelConext.insert(categoria)
+        modelContext.insert(categoria)
     }
     
-    func eliminarCategoria(categoria: Categoria){
-        modelConext.delete(categoria)
+    func eliminarCategoria(categoria: Categoria) {
+        modelContext.delete(categoria)
     }
 }
