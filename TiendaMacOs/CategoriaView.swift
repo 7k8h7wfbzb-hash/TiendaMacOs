@@ -5,112 +5,218 @@
 //  Created by kleber oswaldo muy landi on 25/3/26.
 //
 
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct CategoriaView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Categoria.nombre) private var categorias: [Categoria]
-    
+    @Namespace private var glassNamespace
+
     @State private var nombreCategoria = ""
     @State private var viewModelo: CategoriaViewModel?
-    @State private var mostrarConfirmacion: Bool = false
+    @State private var mostrarConfirmacion = false
     @State private var categoriaElegida: Categoria?
-    
+    @FocusState private var nombreFieldEnfocado: Bool
+
+    private var nombreCategoriaLimpio: String {
+        nombreCategoria.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     var body: some View {
-        VStack(spacing: 0) {
-            
-            HStack{
-                VStack(alignment: .leading,spacing: 4){
-                    Text("Gestion de Categorias").font(.system(size: 22,weight: .bold,design: .rounded))
-                    Text("\(categorias.count) categorias en total")
-                        .font(.subheadline)
-                        .foregroundStyle(Color.secondary)
+        ZStack {
+            VStack(spacing: 0) {
+                encabezado
+
+                if categorias.isEmpty {
+                    estadoVacio
+                } else {
+                    listaCategorias
                 }
-                
-                Spacer()
-                HStack {
-                    Image(systemName: "tag")
-                        .foregroundStyle(.secondary)
-                    TextField("Nueva Categoria", text: $nombreCategoria)
-                        .textFieldStyle(.plain)
-                    
-                    
-                }.padding(8)
-                    .background(Color(nsColor: .controlBackgroundColor))
-                    .cornerRadius(8)
-                    .overlay(RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.secondary.opacity(0.2),lineWidth: 1)
-                    )
-                Button("Agregar"){
-                    viewModelo?.guardarCategoria(nombre: nombreCategoria)
-                    nombreCategoria = ""
-                } .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .help(Text("Agrega una nueva categoria"))
-                    .disabled(nombreCategoria.trimmingCharacters(in: .whitespaces).isEmpty)
-            }.padding(20)
-                .background(Material.ultraThick
-                )
-        Divider()
-            if categorias.isEmpty {
-                ContentUnavailableView(
-                    "Sin Categorías",
-                    systemImage: "folder.badge.plus",
-                    description: Text("Empieza agregando una categoría arriba.")
-                ) // cierre ContentUnavailableView
-                
-            } else {
-                List{
-                    ForEach(categorias,id: \.persistentModelID){ categoria in
-                        HStack(spacing:20){
-                            ZStack{
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color.blue.opacity(0.1))
-                                    .frame(width: 32, height: 32)
-                                Image(systemName: "archivebox").foregroundStyle(.blue)
-                                    
-                                Text(categoria.nombre).font(.system(size: 14,weight: .medium))
-                               
-                            }
-                            Spacer()
-                            Button{
-                                self.categoriaElegida = categoria
-                                self.mostrarConfirmacion = true
-                            }label: {
-                                Image(systemName: "trash").font(.system(size: 12))
-                                    .foregroundStyle(.secondary)
-                            }.buttonStyle(.plain)
-                                .padding(8)
-                                .background(Color.red.opacity(0.1))
-                                .clipShape(Circle())
-                        }.padding(.vertical,6)
-                        
-                    }
-                }.listStyle(.inset(alternatesRowBackgrounds: true))
             }
-        }.frame(minWidth:400,minHeight: 500)
-            .confirmationDialog("Eleminar Categoria de forma permanente", isPresented: $mostrarConfirmacion){
-                Button("Eliminar",role: .destructive){
-                    if let cat  = categoriaElegida {
-                        viewModelo?.eliminarCategoria(categoria: cat)
-                    }
+        }
+        .padding(20)
+        .frame(minWidth: 400, minHeight: 500)
+        .confirmationDialog(
+            "Eliminar categoria de forma permanente",
+            isPresented: $mostrarConfirmacion,
+            titleVisibility: .visible
+        ) {
+            Button("Eliminar", role: .destructive) {
+                if let cat = categoriaElegida {
+                    viewModelo?.eliminarCategoria(categoria: cat)
                 }
-                Button("cancelar",role:.cancel){
-                    
-                }
-                Text("si eleminas \(categoriaElegida?.nombre ?? "") los productos asociación se perderán ")
             }
-        
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Si eliminas \(categoriaElegida?.nombre ?? "esta categoria"), se perdera su asociacion con los productos.")
+        }
         .onAppear {
             if viewModelo == nil {
                 viewModelo = CategoriaViewModel(modelContext: modelContext)
             }
         }
     }
+
+    private var encabezado: some View {
+        GlassEffectContainer(spacing: 18) {
+            VStack(spacing: 16) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Gestion de Categorias", systemImage: "square.grid.2x2")
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
+
+                        Text("Organiza mejor tus productos creando grupos claros y faciles de identificar.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer()
+
+                    VStack(alignment: .trailing, spacing: 8) {
+                        Text("\(categorias.count)")
+                            .font(.system(size: 28, weight: .bold, design: .rounded))
+                        Text(categorias.count == 1 ? "categoria activa" : "categorias activas")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .tiendaSecondaryGlass(cornerRadius: 18)
+                    .glassEffectID("contador", in: glassNamespace)
+                }
+
+                HStack(spacing: 12) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "tag.fill")
+                            .foregroundStyle(.blue)
+                        TextField("Nueva categoria", text: $nombreCategoria)
+                            .textFieldStyle(.plain)
+                            .focused($nombreFieldEnfocado)
+                            .onSubmit(agregarCategoria)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .frame(maxWidth: 280)
+                    .tiendaSecondaryGlass(cornerRadius: 14)
+                    .glassEffectID("input", in: glassNamespace)
+
+                    Button {
+                        agregarCategoria()
+                    } label: {
+                        Label("Agregar", systemImage: "plus")
+                            .fontWeight(.semibold)
+                            .padding(.horizontal, 16)
+                    }
+                    .tiendaPrimaryButton()
+                    .controlSize(.large)
+                    .disabled(nombreCategoriaLimpio.isEmpty)
+                    .help("Agrega una nueva categoria")
+                    .glassEffectID("agregar", in: glassNamespace)
+                }
+            }
+        }
+        .padding(20)
+        .tiendaGlassCard(cornerRadius: 28)
+        .padding(.bottom, 8)
+    }
+
+    private var listaCategorias: some View {
+        GlassEffectContainer(spacing: 16) {
+            List {
+                ForEach(categorias, id: \.persistentModelID) { categoria in
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.blue.opacity(0.12))
+                                .frame(width: 34, height: 34)
+                            Image(systemName: "archivebox.fill")
+                                .foregroundStyle(.blue)
+                        }
+                        .glassEffectID(categoria.persistentModelID, in: glassNamespace)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(categoria.nombre)
+                                .font(.system(size: 14, weight: .medium))
+                            Text("Categoria registrada")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+
+                        Button {
+                            categoriaElegida = categoria
+                            mostrarConfirmacion = true
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.red)
+                                .padding(8)
+                        }
+                        .tiendaSecondaryButton()
+                        .help("Eliminar \(categoria.nombre)")
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .tiendaSecondaryGlass(cornerRadius: 18)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
+            .listStyle(.inset(alternatesRowBackgrounds: false))
+        }
+        .padding(.bottom, 12)
+    }
+
+    private var estadoVacio: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "square.stack.3d.up.slash")
+                .font(.system(size: 42))
+                .foregroundStyle(.blue)
+                .padding(18)
+                .tiendaSecondaryGlass(cornerRadius: 20)
+
+            Text("Sin categorias")
+                .font(.title3.weight(.bold))
+
+            Text("Crea tu primera categoria para empezar a organizar los productos de la tienda.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 320)
+
+            Button {
+                nombreFieldEnfocado = true
+            } label: {
+                Label("Crear ahora", systemImage: "plus.circle.fill")
+            }
+            .tiendaPrimaryButton()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(40)
+        .tiendaGlassCard(cornerRadius: 28)
+    }
+
+    private func agregarCategoria() {
+        let nombre = nombreCategoriaLimpio
+        guard !nombre.isEmpty else { return }
+
+        viewModelo?.guardarCategoria(nombre: nombre)
+        nombreCategoria = ""
+        nombreFieldEnfocado = true
+    }
 }
+
 #Preview {
     CategoriaView()
         .modelContainer(for: [Categoria.self])
 }
-

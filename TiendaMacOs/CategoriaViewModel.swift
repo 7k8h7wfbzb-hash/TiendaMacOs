@@ -17,8 +17,9 @@ class CategoriaViewModel {
     }
     
     func guardarCategoria(nombre: String) {
-        guard !nombre.isEmpty else { return }
-        let categoria = Categoria(nombre: nombre)
+        let nombreLimpio = nombre.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !nombreLimpio.isEmpty else { return }
+        let categoria = Categoria(nombre: nombreLimpio)
         modelContext.insert(categoria)
     }
     
