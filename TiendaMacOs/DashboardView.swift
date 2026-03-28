@@ -84,6 +84,8 @@ struct DashboardView: View {
             CategoriaView()
         case .proveedores:
             VistaProveedor()
+        case .clientes:
+            ClienteView()
         }
     }
 }
@@ -91,6 +93,7 @@ struct DashboardView: View {
 private enum SeccionDashboard: String, CaseIterable, Identifiable {
     case categorias
     case proveedores
+    case clientes
 
     var id: String { rawValue }
 
@@ -100,6 +103,8 @@ private enum SeccionDashboard: String, CaseIterable, Identifiable {
             return "Categorias"
         case .proveedores:
             return "Proveedores"
+        case .clientes:
+            return "Clientes"
         }
     }
 
@@ -109,6 +114,8 @@ private enum SeccionDashboard: String, CaseIterable, Identifiable {
             return "Organiza los grupos"
         case .proveedores:
             return "Gestiona tus contactos"
+        case .clientes:
+            return "Administra tus ventas"
         }
     }
 
@@ -118,11 +125,13 @@ private enum SeccionDashboard: String, CaseIterable, Identifiable {
             return "square.grid.2x2.fill"
         case .proveedores:
             return "shippingbox.fill"
+        case .clientes:
+            return "person.2.fill"
         }
     }
 }
 
 #Preview {
     DashboardView()
-        .modelContainer(for: [Categoria.self, Proveedor.self], inMemory: true)
+        .modelContainer(for: [Categoria.self, Proveedor.self, Cliente.self], inMemory: true)
 }
