@@ -10,15 +10,20 @@ import SwiftData
 
 @main
 struct TiendaMacOsApp: App {
+    @State private var employeeSession = EmployeeSession()
+    
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Empleado.self,Cliente.self,Producto.self,
             LoteProducto.self,
+            ConsumoLote.self,
             Categoria.self,
             Proveedor.self,
             Kardex.self,
             Venta.self,
             DetalleVenta.self,
+            RegistroOperacion.self,
+            PromocionProducto.self,
             
             
         ])
@@ -33,7 +38,14 @@ struct TiendaMacOsApp: App {
 
     var body: some Scene {
         WindowGroup {
-            DashboardView()
+            Group {
+                if employeeSession.estaAutenticado {
+                    DashboardView()
+                } else {
+                    LoginView()
+                }
+            }
+            .environment(employeeSession)
         }
         .modelContainer(sharedModelContainer)
     }

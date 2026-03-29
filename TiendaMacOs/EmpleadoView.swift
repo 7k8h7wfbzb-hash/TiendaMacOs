@@ -1,56 +1,49 @@
 //
-//  ClienteView.swift
+//  EmpleadoView.swift
 //  TiendaMacOs
 //
 
 import SwiftData
 import SwiftUI
 
-struct ClienteView: View {
+struct EmpleadoView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(EmployeeSession.self) private var employeeSession
-    @Query(sort: \Cliente.nombre) private var clientes: [Cliente]
+    @Query(sort: \Empleado.nombre) private var empleados: [Empleado]
     @Namespace private var glassNamespace
 
-    @State private var viewModel: ClienteViewModel?
-    @State private var cedula = ""
+    @State private var viewModel: EmpleadoViewModel?
     @State private var nombre = ""
-    @State private var telefono = ""
-    @State private var nivelFidelidad = "Bronce"
-    @State private var descuentoFidelidad = "0"
-    @State private var clienteAEliminar: Cliente?
-    @State private var clienteSeleccionadoID: PersistentIdentifier?
+    @State private var cargo = ""
+    @State private var usuario = ""
+    @State private var pinAcceso = ""
+    @State private var empleadoAEliminar: Empleado?
+    @State private var empleadoSeleccionadoID: PersistentIdentifier?
     @State private var mostrarConfirmacion = false
     @State private var mensajeError = ""
     @State private var mostrarError = false
     @FocusState private var campoEnfocado: CampoFormulario?
 
-    private let nivelesFidelidad = ["Bronce", "Plata", "Oro", "VIP"]
-
     private enum CampoFormulario {
-        case cedula
         case nombre
-        case telefono
-    }
-
-    private var cedulaLimpia: String {
-        cedula.trimmingCharacters(in: .whitespacesAndNewlines)
+        case cargo
+        case usuario
+        case pin
     }
 
     private var nombreLimpio: String {
         nombre.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var telefonoLimpio: String {
-        telefono.trimmingCharacters(in: .whitespacesAndNewlines)
+    private var cargoLimpio: String {
+        cargo.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var formularioValido: Bool {
-        !cedulaLimpia.isEmpty && !nombreLimpio.isEmpty && !telefonoLimpio.isEmpty && descuentoFidelidadValor >= 0
-    }
-
-    private var descuentoFidelidadValor: Double {
-        Double(descuentoFidelidad.replacingOccurrences(of: ",", with: ".")) ?? 0
+        !nombreLimpio.isEmpty &&
+        !cargoLimpio.isEmpty &&
+        !usuario.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !pinAcceso.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -58,10 +51,10 @@ struct ClienteView: View {
             VStack(spacing: 0) {
                 encabezado
 
-                if clientes.isEmpty {
+                if empleados.isEmpty {
                     estadoVacio
                 } else {
-                    listaClientes
+                    listaEmpleados
                 }
             }
         }
@@ -69,14 +62,14 @@ struct ClienteView: View {
         .frame(minWidth: 680, minHeight: 520)
         .tiendaWindowBackground()
         .confirmationDialog(
-            "Eliminar cliente",
+            "Eliminar empleado",
             isPresented: $mostrarConfirmacion,
             titleVisibility: .visible
         ) {
             Button("Eliminar", role: .destructive) {
-                if let cliente = clienteAEliminar {
+                if let empleado = empleadoAEliminar {
                     do {
-                        try viewModel?.eliminarCliente(cliente: cliente)
+                        try viewModel?.eliminarEmpleado(empleado: empleado)
                     } catch {
                         presentar(error)
                     }
@@ -84,19 +77,19 @@ struct ClienteView: View {
             }
             Button("Cancelar", role: .cancel) {}
         } message: {
-            Text("Se eliminara \(clienteAEliminar?.nombre ?? "este cliente") del registro.")
+            Text("Se eliminara \(empleadoAEliminar?.nombre ?? "este empleado") del registro.")
         }
         .alert("Operacion no completada", isPresented: $mostrarError) {
             Button("Aceptar", role: .cancel) {}
         } message: {
             Text(mensajeError)
         }
-        .onDeleteCommand(perform: eliminarClienteSeleccionado)
+        .onDeleteCommand(perform: eliminarEmpleadoSeleccionado)
         .onAppear {
             if viewModel == nil {
-                viewModel = ClienteViewModel(modelContext: modelContext, employeeSession: employeeSession)
+                viewModel = EmpleadoViewModel(modelContext: modelContext, employeeSession: employeeSession)
             }
-            campoEnfocado = .cedula
+            campoEnfocado = .nombre
         }
     }
 
@@ -105,10 +98,10 @@ struct ClienteView: View {
             VStack(spacing: 18) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Label("Gestion de Clientes", systemImage: "person.2.fill")
+                        Label("Gestion de Empleados", systemImage: "person.crop.rectangle.stack.fill")
                             .font(.system(size: 24, weight: .bold, design: .rounded))
 
-                        Text("Mantiene una cartera clara de clientes con sus datos de contacto y acceso rapido a su registro.")
+                        Text("Administra el equipo de trabajo con un registro claro de nombres y cargos dentro de la tienda.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -117,39 +110,39 @@ struct ClienteView: View {
                     Spacer()
 
                     HStack(spacing: 12) {
-                        estadisticaCard(valor: "\(clientes.count)", titulo: clientes.count == 1 ? "cliente" : "clientes")
-                            .glassEffectID("clientes-total", in: glassNamespace)
+                        estadisticaCard(valor: "\(empleados.count)", titulo: empleados.count == 1 ? "empleado" : "empleados")
+                            .glassEffectID("empleados-total", in: glassNamespace)
 
                         estadisticaCard(
-                            valor: "\(clientes.filter { !$0.telefono.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count)",
-                            titulo: "con telefono"
+                            valor: "\(Set(empleados.map(\.cargo)).count)",
+                            titulo: "cargos"
                         )
-                        .glassEffectID("clientes-telefono", in: glassNamespace)
+                        .glassEffectID("empleados-cargos", in: glassNamespace)
                     }
                 }
 
                 HStack(spacing: 12) {
-                    campoFormulario("Cedula", icono: "number.square.fill", texto: $cedula, foco: .cedula)
-                        .glassEffectID("cliente-cedula", in: glassNamespace)
-
                     campoFormulario("Nombre", icono: "person.fill", texto: $nombre, foco: .nombre)
-                        .glassEffectID("cliente-nombre", in: glassNamespace)
+                        .glassEffectID("empleado-nombre", in: glassNamespace)
 
-                    campoFormulario("Telefono", icono: "phone.fill", texto: $telefono, foco: .telefono)
-                        .glassEffectID("cliente-telefono", in: glassNamespace)
-
-                    pickerFidelidad
-                    campoDescuento
+                    campoFormulario("Cargo", icono: "briefcase.fill", texto: $cargo, foco: .cargo)
+                        .glassEffectID("empleado-cargo", in: glassNamespace)
+                    
+                    campoFormulario("Usuario", icono: "at", texto: $usuario, foco: .usuario)
+                        .glassEffectID("empleado-usuario", in: glassNamespace)
+                    
+                    campoFormularioSeguro("PIN", icono: "lock.fill", texto: $pinAcceso, foco: .pin)
+                        .glassEffectID("empleado-pin", in: glassNamespace)
 
                     Button("Nuevo") {
-                        campoEnfocado = .cedula
+                        campoEnfocado = .nombre
                     }
                     .tiendaSecondaryButton()
                     .keyboardShortcut("n", modifiers: .command)
-                    .help("Enfocar el formulario de cliente. Atajo: Comando N")
+                    .help("Enfocar el formulario de empleado. Atajo: Comando N")
 
                     Button {
-                        guardarCliente()
+                        guardarEmpleado()
                     } label: {
                         Label("Agregar", systemImage: "plus")
                             .fontWeight(.semibold)
@@ -158,13 +151,13 @@ struct ClienteView: View {
                     .tiendaPrimaryButton()
                     .controlSize(.large)
                     .disabled(!formularioValido)
-                    .glassEffectID("cliente-agregar", in: glassNamespace)
+                    .glassEffectID("empleado-agregar", in: glassNamespace)
                     .keyboardShortcut(.return, modifiers: [])
-                    .help("Guardar cliente. Atajo: Enter")
+                    .help("Guardar empleado. Atajo: Enter")
                 }
 
                 HStack(spacing: 10) {
-                    atajoChip("⌘N", texto: "Enfocar cedula")
+                    atajoChip("⌘N", texto: "Enfocar nombre")
                     atajoChip("Enter", texto: "Avanzar o guardar")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -175,47 +168,39 @@ struct ClienteView: View {
         .padding(.bottom, 8)
     }
 
-    private var listaClientes: some View {
+    private var listaEmpleados: some View {
         GlassEffectContainer(spacing: 16) {
-            Table(clientes, selection: $clienteSeleccionadoID) {
-                TableColumn("Cliente") { cliente in
-                    Text(cliente.nombre)
+            Table(empleados, selection: $empleadoSeleccionadoID) {
+                TableColumn("Nombre") { empleado in
+                    Text(empleado.nombre)
                         .font(.headline)
                 }
-                TableColumn("Cedula") { cliente in
-                    Text(cliente.cedula)
+                TableColumn("Cargo") { empleado in
+                    Text(empleado.cargo)
                 }
-                TableColumn("Telefono") { cliente in
-                    Text(cliente.telefono)
+                TableColumn("Usuario") { empleado in
+                    Text(empleado.usuario)
                 }
-                TableColumn("Fidelidad") { cliente in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(cliente.nivelFidelidad)
-                        Text("\(String(format: "%.0f", cliente.descuentoFidelidad))% desc.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                TableColumn("Ventas") { empleado in
+                    Text("\(empleado.ventas.count)")
                 }
-                TableColumn("Compras") { cliente in
-                    Text("\(cliente.compras.count)")
+                TableColumn("Operaciones") { empleado in
+                    Text("\(empleado.operaciones.count)")
                 }
-                TableColumn("Puntos") { cliente in
-                    Text("\(cliente.puntosAcumulados)")
+                TableColumn("Acceso") { empleado in
+                    Text(empleado.pinAcceso.isEmpty ? "Sin acceso" : "Activo")
+                        .foregroundStyle(empleado.pinAcceso.isEmpty ? .orange : .green)
                 }
-                TableColumn("Historico") { cliente in
-                    Text("$\(String(format: "%.2f", cliente.compras.reduce(0) { $0 + $1.total }))")
-                        .font(.subheadline.weight(.semibold))
-                }
-                TableColumn("") { cliente in
+                TableColumn("") { empleado in
                     Button {
-                        clienteAEliminar = cliente
+                        empleadoAEliminar = empleado
                         mostrarConfirmacion = true
                     } label: {
                         Image(systemName: "trash")
                             .foregroundStyle(.red)
                     }
                     .buttonStyle(.plain)
-                    .help("Eliminar \(cliente.nombre)")
+                    .help("Eliminar \(empleado.nombre)")
                 }
                 .width(44)
             }
@@ -225,25 +210,25 @@ struct ClienteView: View {
 
     private var estadoVacio: some View {
         VStack(spacing: 18) {
-            Image(systemName: "person.crop.circle.badge.plus")
+            Image(systemName: "person.3.sequence.fill")
                 .font(.system(size: 42))
-                .foregroundStyle(.orange)
+                .foregroundStyle(.green)
                 .padding(18)
                 .tiendaSecondaryGlass(cornerRadius: 22)
 
-            Text("Aun no hay clientes")
+            Text("Aun no hay empleados")
                 .font(.title3.weight(.bold))
 
-            Text("Agrega tu primer cliente con cedula, nombre y telefono para empezar a registrar ventas de forma ordenada.")
+            Text("Agrega a tu primer empleado con su nombre y cargo para empezar a organizar el equipo.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 360)
 
             Button {
-                campoEnfocado = .cedula
+                campoEnfocado = .nombre
             } label: {
-                Label("Crear cliente", systemImage: "plus.circle.fill")
+                Label("Crear empleado", systemImage: "plus.circle.fill")
             }
             .tiendaPrimaryButton()
         }
@@ -269,7 +254,7 @@ struct ClienteView: View {
     private func campoFormulario(_ titulo: String, icono: String, texto: Binding<String>, foco: CampoFormulario) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icono)
-                .foregroundStyle(.orange)
+                .foregroundStyle(.green)
             TextField(titulo, text: texto)
                 .textFieldStyle(.plain)
                 .focused($campoEnfocado, equals: foco)
@@ -283,32 +268,23 @@ struct ClienteView: View {
         .tiendaSecondaryGlass(cornerRadius: 16)
         .help("Presiona Enter para continuar")
     }
-
-    private var pickerFidelidad: some View {
-        Picker("Nivel", selection: $nivelFidelidad) {
-            ForEach(nivelesFidelidad, id: \.self) { nivel in
-                Text(nivel).tag(nivel)
-            }
-        }
-        .labelsHidden()
-        .frame(maxWidth: 130)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 12)
-        .tiendaSecondaryGlass(cornerRadius: 16)
-    }
-
-    private var campoDescuento: some View {
+    
+    private func campoFormularioSeguro(_ titulo: String, icono: String, texto: Binding<String>, foco: CampoFormulario) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: "percent")
-                .foregroundStyle(.orange)
-            TextField("Desc. fidelidad", text: $descuentoFidelidad)
+            Image(systemName: icono)
+                .foregroundStyle(.green)
+            SecureField(titulo, text: texto)
                 .textFieldStyle(.plain)
+                .focused($campoEnfocado, equals: foco)
+                .onSubmit {
+                    avanzarFormulario(desde: foco)
+                }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .frame(maxWidth: 140)
+        .frame(maxWidth: .infinity)
         .tiendaSecondaryGlass(cornerRadius: 16)
-        .help("Descuento preferencial para este cliente")
+        .help("Presiona Enter para continuar")
     }
 
     private func infoBadge(icono: String, texto: String) -> some View {
@@ -322,54 +298,6 @@ struct ClienteView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .tiendaSecondaryGlass(cornerRadius: 12)
-    }
-
-    private func avanzarFormulario(desde campo: CampoFormulario) {
-        switch campo {
-        case .cedula:
-            campoEnfocado = .nombre
-        case .nombre:
-            campoEnfocado = .telefono
-        case .telefono:
-            guardarCliente()
-        }
-    }
-
-    private func guardarCliente() {
-        guard formularioValido else { return }
-
-        let cliente = Cliente(
-            cedula: cedulaLimpia,
-            nombre: nombreLimpio,
-            telefono: telefonoLimpio,
-            nivelFidelidad: nivelFidelidad,
-            descuentoFidelidad: descuentoFidelidadValor
-        )
-        do {
-            try viewModel?.guardarCliente(cliente: cliente)
-        } catch {
-            presentar(error)
-            return
-        }
-
-        cedula = ""
-        nombre = ""
-        telefono = ""
-        nivelFidelidad = nivelesFidelidad.first ?? "Bronce"
-        descuentoFidelidad = "0"
-        campoEnfocado = .cedula
-    }
-
-    private func eliminarClienteSeleccionado() {
-        guard let clienteSeleccionadoID,
-              let cliente = clientes.first(where: { $0.persistentModelID == clienteSeleccionadoID }) else { return }
-        clienteAEliminar = cliente
-        mostrarConfirmacion = true
-    }
-    
-    private func presentar(_ error: Error) {
-        mensajeError = error.localizedDescription
-        mostrarError = true
     }
 
     private func atajoChip(_ atajo: String, texto: String) -> some View {
@@ -387,10 +315,58 @@ struct ClienteView: View {
         .padding(.vertical, 8)
         .tiendaSecondaryGlass(cornerRadius: 14)
     }
+
+    private func avanzarFormulario(desde campo: CampoFormulario) {
+        switch campo {
+        case .nombre:
+            campoEnfocado = .cargo
+        case .cargo:
+            campoEnfocado = .usuario
+        case .usuario:
+            campoEnfocado = .pin
+        case .pin:
+            guardarEmpleado()
+        }
+    }
+
+    private func guardarEmpleado() {
+        guard formularioValido else { return }
+
+        let empleado = Empleado(
+            nombre: nombreLimpio,
+            cargo: cargoLimpio,
+            usuario: usuario.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+            pinAcceso: pinAcceso.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+        do {
+            try viewModel?.guardarEmpleado(empleado: empleado)
+        } catch {
+            presentar(error)
+            return
+        }
+
+        nombre = ""
+        cargo = ""
+        usuario = ""
+        pinAcceso = ""
+        campoEnfocado = .nombre
+    }
+
+    private func eliminarEmpleadoSeleccionado() {
+        guard let empleadoSeleccionadoID,
+              let empleado = empleados.first(where: { $0.persistentModelID == empleadoSeleccionadoID }) else { return }
+        empleadoAEliminar = empleado
+        mostrarConfirmacion = true
+    }
+    
+    private func presentar(_ error: Error) {
+        mensajeError = error.localizedDescription
+        mostrarError = true
+    }
 }
 
 #Preview {
-    ClienteView()
+    EmpleadoView()
         .environment(EmployeeSession())
         .modelContainer(for: [Empleado.self, Cliente.self, Producto.self, LoteProducto.self, ConsumoLote.self, Categoria.self, Proveedor.self, Kardex.self, Venta.self, DetalleVenta.self, RegistroOperacion.self], inMemory: true)
 }

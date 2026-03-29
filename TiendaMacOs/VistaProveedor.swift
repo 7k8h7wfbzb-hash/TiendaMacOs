@@ -10,6 +10,7 @@ import SwiftUI
 
 struct VistaProveedor: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(EmployeeSession.self) private var employeeSession
     @Query(sort: \Proveedor.nombre) private var proveedores: [Proveedor]
     @Namespace private var glassNamespace
 
@@ -18,7 +19,10 @@ struct VistaProveedor: View {
     @State private var ruc = ""
     @State private var contacto = ""
     @State private var proveedorAEliminar: Proveedor?
+    @State private var proveedorSeleccionadoID: PersistentIdentifier?
     @State private var mostrarConfirmacion = false
+    @State private var mensajeError = ""
+    @State private var mostrarError = false
     @FocusState private var campoEnfocado: CampoFormulario?
 
     private enum CampoFormulario {
@@ -65,17 +69,28 @@ struct VistaProveedor: View {
         ) {
             Button("Eliminar", role: .destructive) {
                 if let proveedor = proveedorAEliminar {
-                    try? viewModel?.eliminarProveedor(proveedor: proveedor)
+                    do {
+                        try viewModel?.eliminarProveedor(proveedor: proveedor)
+                    } catch {
+                        presentar(error)
+                    }
                 }
             }
             Button("Cancelar", role: .cancel) {}
         } message: {
             Text("Se eliminara \(proveedorAEliminar?.nombre ?? "este proveedor") del registro.")
         }
+        .alert("Operacion no completada", isPresented: $mostrarError) {
+            Button("Aceptar", role: .cancel) {}
+        } message: {
+            Text(mensajeError)
+        }
+        .onDeleteCommand(perform: eliminarProveedorSeleccionado)
         .onAppear {
             if viewModel == nil {
-                viewModel = ProveedorViewModel(modelContext: modelContext)
+                viewModel = ProveedorViewModel(modelContext: modelContext, employeeSession: employeeSession)
             }
+            campoEnfocado = .nombre
         }
     }
 
@@ -117,6 +132,13 @@ struct VistaProveedor: View {
                     campoFormulario("Contacto", icono: "person.crop.circle.fill", texto: $contacto, foco: .contacto)
                         .glassEffectID("campo-contacto", in: glassNamespace)
 
+                    Button("Nuevo") {
+                        campoEnfocado = .nombre
+                    }
+                    .tiendaSecondaryButton()
+                    .keyboardShortcut("n", modifiers: .command)
+                    .help("Enfocar el formulario de proveedor. Atajo: Comando N")
+
                     Button {
                         guardarProveedor()
                     } label: {
@@ -128,7 +150,15 @@ struct VistaProveedor: View {
                     .controlSize(.large)
                     .disabled(!formularioValido)
                     .glassEffectID("agregar-proveedor", in: glassNamespace)
+                    .keyboardShortcut(.return, modifiers: [])
+                    .help("Guardar proveedor. Atajo: Enter")
                 }
+
+                HStack(spacing: 10) {
+                    atajoChip("⌘N", texto: "Enfocar nombre")
+                    atajoChip("Enter", texto: "Avanzar o guardar")
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(20)
@@ -138,52 +168,37 @@ struct VistaProveedor: View {
 
     private var listaProveedores: some View {
         GlassEffectContainer(spacing: 16) {
-            List {
-                ForEach(proveedores, id: \.persistentModelID) { proveedor in
-                    HStack(spacing: 14) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.teal.opacity(0.12))
-                                .frame(width: 38, height: 38)
-                            Image(systemName: "shippingbox.fill")
-                                .foregroundStyle(.teal)
-                        }
-                        .glassEffectID(proveedor.persistentModelID, in: glassNamespace)
-
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(proveedor.nombre)
-                                .font(.headline)
-
-                            HStack(spacing: 10) {
-                                infoBadge(icono: "number", texto: proveedor.ruc)
-                                infoBadge(icono: "person.fill", texto: proveedor.contacto)
-                            }
-                        }
-
-                        Spacer()
-
-                        Button {
-                            proveedorAEliminar = proveedor
-                            mostrarConfirmacion = true
-                        } label: {
-                            Image(systemName: "trash")
-                                .foregroundStyle(.red)
-                                .padding(8)
-                        }
-                        .tiendaSecondaryButton()
-                        .help("Eliminar \(proveedor.nombre)")
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .tiendaSecondaryGlass(cornerRadius: 20)
-                    .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
+            Table(proveedores, selection: $proveedorSeleccionadoID) {
+                TableColumn("Proveedor") { proveedor in
+                    Text(proveedor.nombre)
+                        .font(.headline)
                 }
+                TableColumn("RUC") { proveedor in
+                    Text(proveedor.ruc)
+                }
+                TableColumn("Contacto") { proveedor in
+                    Text(proveedor.contacto)
+                }
+                TableColumn("Lotes") { proveedor in
+                    Text("\(proveedor.lotesEntregados.count)")
+                }
+                TableColumn("Unidades") { proveedor in
+                    Text("\(proveedor.lotesEntregados.reduce(0) { $0 + $1.totalUnidades }, format: .number.precision(.fractionLength(0)))")
+                }
+                TableColumn("") { proveedor in
+                    Button {
+                        proveedorAEliminar = proveedor
+                        mostrarConfirmacion = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .foregroundStyle(.red)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Eliminar \(proveedor.nombre)")
+                }
+                .width(44)
             }
-            .scrollContentBackground(.hidden)
-            .background(Color.clear)
-            .listStyle(.inset(alternatesRowBackgrounds: false))
+            .tableStyle(.inset)
         }
     }
 
@@ -245,6 +260,7 @@ struct VistaProveedor: View {
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity)
         .tiendaSecondaryGlass(cornerRadius: 16)
+        .help("Presiona Enter para continuar")
     }
 
     private func infoBadge(icono: String, texto: String) -> some View {
@@ -275,16 +291,50 @@ struct VistaProveedor: View {
         guard formularioValido else { return }
 
         let proveedor = Proveedor(nombre: nombreLimpio, ruc: rucLimpio, contacto: contactoLimpio)
-        try? viewModel?.crearProveedor(proveedor: proveedor)
+        do {
+            try viewModel?.crearProveedor(proveedor: proveedor)
+        } catch {
+            presentar(error)
+            return
+        }
 
         nombre = ""
         ruc = ""
         contacto = ""
         campoEnfocado = .nombre
     }
+
+    private func eliminarProveedorSeleccionado() {
+        guard let proveedorSeleccionadoID,
+              let proveedor = proveedores.first(where: { $0.persistentModelID == proveedorSeleccionadoID }) else { return }
+        proveedorAEliminar = proveedor
+        mostrarConfirmacion = true
+    }
+    
+    private func presentar(_ error: Error) {
+        mensajeError = error.localizedDescription
+        mostrarError = true
+    }
+
+    private func atajoChip(_ atajo: String, texto: String) -> some View {
+        HStack(spacing: 8) {
+            Text(atajo)
+                .font(.caption2.weight(.bold))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.white.opacity(0.08), in: Capsule())
+            Text(texto)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .tiendaSecondaryGlass(cornerRadius: 14)
+    }
 }
 
 #Preview {
     VistaProveedor()
-        .modelContainer(for: [Proveedor.self], inMemory: true)
+        .environment(EmployeeSession())
+        .modelContainer(for: [Empleado.self, Cliente.self, Producto.self, LoteProducto.self, ConsumoLote.self, Categoria.self, Proveedor.self, Kardex.self, Venta.self, DetalleVenta.self, RegistroOperacion.self], inMemory: true)
 }

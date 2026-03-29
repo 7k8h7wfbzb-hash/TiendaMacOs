@@ -10,9 +10,11 @@ import SwiftData
 @Observable
 class ProveedorViewModel {
     private var modelContext: ModelContext
+    private let employeeSession: EmployeeSession
     
-    init(modelContext: ModelContext) {
+    init(modelContext: ModelContext, employeeSession: EmployeeSession) {
         self.modelContext = modelContext
+        self.employeeSession = employeeSession
     }
     
     func crearProveedor(proveedor: Proveedor) throws {
@@ -22,11 +24,26 @@ class ProveedorViewModel {
         guard !proveedor.nombre.isEmpty, !proveedor.ruc.isEmpty, !proveedor.contacto.isEmpty else { return }
 
         modelContext.insert(proveedor)
+        OperacionLogger.registrar(
+            modulo: "Proveedores",
+            accion: "Crear proveedor",
+            detalle: "Se registro el proveedor \(proveedor.nombre).",
+            empleado: employeeSession.empleadoActual,
+            modelContext: modelContext
+        )
         try modelContext.save()
     }
     
     func eliminarProveedor(proveedor: Proveedor) throws {
+        let nombre = proveedor.nombre
         modelContext.delete(proveedor)
+        OperacionLogger.registrar(
+            modulo: "Proveedores",
+            accion: "Eliminar proveedor",
+            detalle: "Se elimino el proveedor \(nombre).",
+            empleado: employeeSession.empleadoActual,
+            modelContext: modelContext
+        )
         try modelContext.save()
     }
 }
