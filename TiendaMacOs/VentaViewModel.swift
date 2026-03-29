@@ -120,6 +120,11 @@ class VentaViewModel {
         guard venta.estadoFactura == "BORRADOR", !venta.detalles.isEmpty else { throw TiendaError.facturaSinDetalle }
         venta.recalcularTotales(tasaImpuesto: tasaImpuesto)
         venta.estadoFactura = "EMITIDA"
+        try ContabilidadService.registrarVentaEmitida(
+            venta: venta,
+            empleado: employeeSession.empleadoActual,
+            modelContext: modelContext
+        )
         OperacionLogger.registrar(
             modulo: "Ventas",
             accion: "Emitir factura",
@@ -137,6 +142,12 @@ class VentaViewModel {
         venta.estadoFactura = "PAGADA"
         venta.metodoPago = metodo
         venta.fechaPago = Date()
+        try ContabilidadService.registrarCobroVenta(
+            venta: venta,
+            metodoPago: metodo,
+            empleado: employeeSession.empleadoActual,
+            modelContext: modelContext
+        )
         if let cliente = venta.cliente {
             cliente.puntosAcumulados += Int(venta.total.rounded(.down))
         }
@@ -154,6 +165,14 @@ class VentaViewModel {
         guard venta.estadoFactura != "PAGADA", venta.estadoFactura != "ANULADA" else { throw TiendaError.facturaNoEditable }
         let motivoLimpio = motivo.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !motivoLimpio.isEmpty else { throw TiendaError.motivoAnulacionRequerido }
+
+        if venta.estadoFactura == "EMITIDA" {
+            try ContabilidadService.registrarAnulacionVenta(
+                venta: venta,
+                empleado: employeeSession.empleadoActual,
+                modelContext: modelContext
+            )
+        }
 
         for detalle in venta.detalles {
             detalle.consumos.forEach { modelContext.delete($0) }

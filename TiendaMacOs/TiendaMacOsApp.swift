@@ -24,6 +24,9 @@ struct TiendaMacOsApp: App {
             DetalleVenta.self,
             RegistroOperacion.self,
             PromocionProducto.self,
+            CuentaContable.self,
+            AsientoContable.self,
+            DetalleAsientoContable.self,
             
             
         ])

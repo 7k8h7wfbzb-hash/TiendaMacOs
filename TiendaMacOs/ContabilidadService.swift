@@ -112,9 +112,10 @@ enum ContabilidadService {
     }
 
     private static func cuenta(_ definicion: (String, String, String), modelContext: ModelContext) throws -> CuentaContable {
+        let codigo = definicion.0
         let descriptor = FetchDescriptor<CuentaContable>(
             predicate: #Predicate<CuentaContable> { cuenta in
-                cuenta.codigo == definicion.0
+                cuenta.codigo == codigo
             }
         )
         if let existente = try modelContext.fetch(descriptor).first {

@@ -48,6 +48,11 @@ class LoteProductoViewModel {
             modelContext: modelContext
         )
 
+        try ContabilidadService.registrarCompraInventario(
+            lote: lote,
+            empleado: employeeSession.empleadoActual,
+            modelContext: modelContext
+        )
         try modelContext.save()
     }
 

@@ -222,6 +222,8 @@ struct DashboardView: View {
             ProductoView()
         case .promociones:
             PromocionView()
+        case .contabilidad:
+            ContabilidadView()
         case .lotes:
             LoteProductoView()
         case .ventas:
@@ -245,6 +247,7 @@ private enum SeccionDashboard: String, CaseIterable, Identifiable {
     case empleados
     case productos
     case promociones
+    case contabilidad
     case lotes
     case ventas
     case kardex
@@ -267,6 +270,8 @@ private enum SeccionDashboard: String, CaseIterable, Identifiable {
         case .productos:
             return "⌘5"
         case .promociones:
+            return nil
+        case .contabilidad:
             return nil
         case .lotes:
             return "⌘6"
@@ -295,6 +300,8 @@ private enum SeccionDashboard: String, CaseIterable, Identifiable {
             return "Productos"
         case .promociones:
             return "Promociones"
+        case .contabilidad:
+            return "Contabilidad"
         case .lotes:
             return "Lotes"
         case .ventas:
@@ -324,6 +331,8 @@ private enum SeccionDashboard: String, CaseIterable, Identifiable {
             return "Controla inventario"
         case .promociones:
             return "Ofertas y descuentos"
+        case .contabilidad:
+            return "Diario y cuentas"
         case .lotes:
             return "Registra entradas"
         case .ventas:
@@ -353,6 +362,8 @@ private enum SeccionDashboard: String, CaseIterable, Identifiable {
             return "cube.box.fill"
         case .promociones:
             return "tag.badge.plus"
+        case .contabilidad:
+            return "building.columns.fill"
         case .lotes:
             return "shippingbox.and.arrow.backward.fill"
         case .ventas:
@@ -389,6 +400,8 @@ private enum SeccionDashboard: String, CaseIterable, Identifiable {
             return .mint
         case .promociones:
             return .pink
+        case .contabilidad:
+            return .indigo
         case .lotes:
             return .cyan
         case .ventas:
@@ -421,6 +434,8 @@ private extension View {
             keyboardShortcut("5", modifiers: .command)
         case .promociones:
             self
+        case .contabilidad:
+            self
         case .lotes:
             keyboardShortcut("6", modifiers: .command)
         case .ventas:
@@ -438,5 +453,5 @@ private extension View {
 #Preview {
     DashboardView()
         .environment(EmployeeSession())
-        .modelContainer(for: [Categoria.self, Proveedor.self, Cliente.self, Empleado.self, Producto.self, LoteProducto.self, ConsumoLote.self, Venta.self, DetalleVenta.self, Kardex.self, RegistroOperacion.self], inMemory: true)
+        .modelContainer(for: [Categoria.self, Proveedor.self, Cliente.self, Empleado.self, Producto.self, LoteProducto.self, ConsumoLote.self, Venta.self, DetalleVenta.self, Kardex.self, RegistroOperacion.self, PromocionProducto.self, CuentaContable.self, AsientoContable.self, DetalleAsientoContable.self], inMemory: true)
 }
