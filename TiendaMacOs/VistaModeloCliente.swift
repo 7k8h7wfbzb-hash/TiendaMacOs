@@ -24,7 +24,9 @@ class ClienteViewModel {
         cliente.telefono = cliente.telefono.trimmingCharacters(in: .whitespacesAndNewlines)
         cliente.nivelFidelidad = cliente.nivelFidelidad.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard !cliente.cedula.isEmpty, !cliente.nombre.isEmpty, !cliente.telefono.isEmpty else { return }
+        guard !cliente.cedula.isEmpty, !cliente.nombre.isEmpty, !cliente.telefono.isEmpty else {
+            throw TiendaError.datosIncompletos
+        }
 
         modelContext.insert(cliente)
         OperacionLogger.registrar(
@@ -56,7 +58,9 @@ class ClienteViewModel {
         cliente.telefono = cliente.telefono.trimmingCharacters(in: .whitespacesAndNewlines)
         cliente.nivelFidelidad = cliente.nivelFidelidad.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard !cliente.cedula.isEmpty, !cliente.nombre.isEmpty, !cliente.telefono.isEmpty else { return }
+        guard !cliente.cedula.isEmpty, !cliente.nombre.isEmpty, !cliente.telefono.isEmpty else {
+            throw TiendaError.datosIncompletos
+        }
 
         OperacionLogger.registrar(
             modulo: "Clientes",

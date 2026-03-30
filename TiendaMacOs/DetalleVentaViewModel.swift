@@ -6,6 +6,7 @@
 import Foundation
 import SwiftData
 
+@MainActor
 @Observable
 class DetalleVentaViewModel {
     private var modelContext: ModelContext
@@ -19,13 +20,12 @@ class DetalleVentaViewModel {
     }
 
     func guardarDetalle(_ detalle: DetalleVenta) throws {
-        guard detalle.cantidad > 0,
-              detalle.precioUnitarioSnapshot >= 0,
-              let producto = detalle.producto,
-              let venta = detalle.venta,
-              venta.sePuedeEditar,
-              producto.stockActual >= detalle.cantidad
-        else { throw TiendaError.stockInsuficiente }
+        guard detalle.cantidad > 0 else { throw TiendaError.datosIncompletos }
+        guard detalle.precioUnitarioSnapshot >= 0 else { throw TiendaError.datosIncompletos }
+        guard let producto = detalle.producto else { throw TiendaError.datosIncompletos }
+        guard let venta = detalle.venta else { throw TiendaError.datosIncompletos }
+        guard venta.sePuedeEditar else { throw TiendaError.facturaNoEditable }
+        guard producto.stockActual >= detalle.cantidad else { throw TiendaError.stockInsuficiente }
 
         let ventaID = venta.persistentModelID
         let productoID = producto.persistentModelID
@@ -63,7 +63,7 @@ class DetalleVentaViewModel {
         }
 
         let movimiento = Kardex(
-            tipo: "SALIDA",
+            tipo: TipoMovimiento.salida.rawValue,
             cantidad: cantidadNueva,
             concepto: "Venta \(venta.numeroFactura) - \(producto.nombre)",
             costo: detalle.precioUnitarioSnapshot,
@@ -122,11 +122,13 @@ class DetalleVentaViewModel {
         if let producto = detalle.producto, let venta = detalle.venta {
             guard venta.sePuedeEditar else { throw TiendaError.facturaNoEditable }
 
+            // Usar costo de compra del lote, no precio de venta
+            let costoLote = costoPromedioPonderado(detalle: detalle)
             let movimiento = Kardex(
-                tipo: "ENTRADA",
+                tipo: TipoMovimiento.entrada.rawValue,
                 cantidad: detalle.cantidad,
                 concepto: "Reversion detalle \(venta.numeroFactura) - \(producto.nombre)",
-                costo: detalle.precioUnitarioSnapshot,
+                costo: costoLote,
                 producto: producto,
                 empleado: employeeSession.empleadoActual
             )
@@ -163,10 +165,23 @@ class DetalleVentaViewModel {
         try modelContext.save()
     }
 
+    /// Calcula el costo promedio ponderado por lote de un detalle
+    private func costoPromedioPonderado(detalle: DetalleVenta) -> Double {
+        let consumos = detalle.consumos
+        guard !consumos.isEmpty else { return 0 }
+        let costoTotal = consumos.reduce(0.0) { parcial, consumo in
+            guard let lote = consumo.lote else { return parcial }
+            let costoUnitario = lote.unidadesPorCaja > 0 ? lote.precioCompraCaja / lote.unidadesPorCaja : lote.precioCompraCaja
+            return parcial + (consumo.cantidad * costoUnitario)
+        }
+        let cantidadTotal = consumos.reduce(0.0) { $0 + $1.cantidad }
+        return cantidadTotal > 0 ? costoTotal / cantidadTotal : 0
+    }
+
     private func registrarConsumoFEFO(cantidad: Double, para producto: Producto, en detalle: DetalleVenta) throws {
         var restante = cantidad
         let lotesOrdenados = producto.lotes
-            .filter { $0.estadoLote == "VIGENTE" || $0.estadoLote == "PROXIMO" }
+            .filter { $0.estadoLote == EstadoLote.vigente.rawValue || $0.estadoLote == EstadoLote.proximo.rawValue }
             .sorted { lhs, rhs in
                 switch (lhs.fechaCaducidad, rhs.fechaCaducidad) {
                 case let (izquierda?, derecha?):

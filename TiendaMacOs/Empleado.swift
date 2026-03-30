@@ -6,8 +6,43 @@
 //
 
 
+import CryptoKit
 import Foundation
 import SwiftData
+
+// MARK: - Enums de dominio
+
+enum EstadoFactura: String, Codable, CaseIterable {
+    case borrador = "BORRADOR"
+    case emitida = "EMITIDA"
+    case pagada = "PAGADA"
+    case anulada = "ANULADA"
+}
+
+enum EstadoLote: String, Codable, CaseIterable {
+    case vigente = "VIGENTE"
+    case proximo = "PROXIMO"
+    case caducado = "CADUCADO"
+    case devuelto = "DEVUELTO"
+}
+
+enum TipoPromocion: String, Codable, CaseIterable {
+    case porcentaje = "PORCENTAJE"
+    case precioEspecial = "PRECIO_ESPECIAL"
+    case montoFijo = "MONTO_FIJO"
+}
+
+enum EstadoFisico: String, Codable, CaseIterable {
+    case liquido = "Líquido"
+    case gaseoso = "Gaseoso"
+    case masa = "Masa"
+    case solido = "Sólido"
+}
+
+enum TipoMovimiento: String, Codable, CaseIterable {
+    case entrada = "ENTRADA"
+    case salida = "SALIDA"
+}
 
 // MARK: - 1. SISTEMA DE PERSONAS
 @Model
@@ -25,6 +60,12 @@ class Empleado {
         self.cargo = cargo
         self.usuario = usuario
         self.pinAcceso = pinAcceso
+    }
+
+    static func hashPin(_ pin: String) -> String {
+        let data = Data(pin.utf8)
+        let hash = SHA256.hash(data: data)
+        return hash.compactMap { String(format: "%02x", $0) }.joined()
     }
 }
 
@@ -64,15 +105,12 @@ class Producto {
     var unidadMedida: String
     var detalleProducto: String
     @Attribute(.externalStorage) var fotoData: Data?
-    var estadoFisico: String // Líquido, Gaseoso, Masa, Sólido
+    var estadoFisico: String
     var stockMinimo: Double
     
     var categoria: Categoria?
     
-    // Relación con los lotes recibidos (Historial de entradas)
     @Relationship(deleteRule: .cascade) var lotes: [LoteProducto] = []
-    
-    // Relación con el Kárdex (Movimientos totales)
     @Relationship(deleteRule: .cascade) var movimientosKardex: [Kardex] = []
     @Relationship(deleteRule: .cascade) var promociones: [PromocionProducto] = []
 
@@ -96,30 +134,29 @@ class Producto {
         self.stockMinimo = stockMinimo
     }
     
-    // El stock operativo real se obtiene desde las existencias remanentes por lote.
     var stockActual: Double {
         lotes
-            .filter { $0.estadoLote == "VIGENTE" || $0.estadoLote == "PROXIMO" }
+            .filter { $0.estadoLote == EstadoLote.vigente.rawValue || $0.estadoLote == EstadoLote.proximo.rawValue }
             .reduce(0) { $0 + $1.unidadesDisponibles }
     }
 
     var lotesCaducados: Int {
-        lotes.filter { $0.estadoLote == "CADUCADO" }.count
+        lotes.filter { $0.estadoLote == EstadoLote.caducado.rawValue }.count
     }
 
     var lotesPorCaducar: Int {
-        lotes.filter { $0.estadoLote == "PROXIMO" }.count
+        lotes.filter { $0.estadoLote == EstadoLote.proximo.rawValue }.count
     }
 }
 
 @Model
 class LoteProducto {
-    var idLote: String // Podría ser un código de barras o serie
-    var fechaIngreso: Date // Fecha y Hora exacta de la entrega
+    var idLote: String
+    var fechaIngreso: Date
     var cantidadCajas: Double
     var unidadesPorCaja: Double
     var unidadesSueltas: Double
-    var tipoEmpaque: String // "Caja", "Paca", "Saco", "Botella"
+    var tipoEmpaque: String
     
     var precioCompraCaja: Double
     var precioVentaSugerido: Double
@@ -142,7 +179,7 @@ class LoteProducto {
         fechaCaducidad: Date? = nil
     ) {
         self.idLote = UUID().uuidString
-        self.fechaIngreso = Date() // Captura la hora actual del sistema
+        self.fechaIngreso = Date()
         self.cantidadCajas = cajas
         self.unidadesPorCaja = unidadesXBox
         self.unidadesSueltas = sueltas
@@ -166,10 +203,10 @@ class LoteProducto {
 
     var estadoLote: String {
         if fechaDevolucionProveedor != nil {
-            return "DEVUELTO"
+            return EstadoLote.devuelto.rawValue
         }
         guard let fechaCaducidad else {
-            return "VIGENTE"
+            return EstadoLote.vigente.rawValue
         }
 
         let calendario = Calendar.current
@@ -177,14 +214,14 @@ class LoteProducto {
         let vencimiento = calendario.startOfDay(for: fechaCaducidad)
 
         if vencimiento < hoy {
-            return "CADUCADO"
+            return EstadoLote.caducado.rawValue
         }
 
         if let dias = calendario.dateComponents([.day], from: hoy, to: vencimiento).day, dias <= 30 {
-            return "PROXIMO"
+            return EstadoLote.proximo.rawValue
         }
 
-        return "VIGENTE"
+        return EstadoLote.vigente.rawValue
     }
 
     var sePuedeDevolverAProveedor: Bool {
@@ -271,11 +308,11 @@ class PromocionProducto {
     func descuentoUnitario(precioBase: Double) -> Double {
         guard estaVigente(), precioBase > 0 else { return 0 }
         switch tipoPromocion {
-        case "PORCENTAJE":
+        case TipoPromocion.porcentaje.rawValue:
             return min(precioBase, precioBase * (valorPromocion / 100))
-        case "PRECIO_ESPECIAL":
+        case TipoPromocion.precioEspecial.rawValue:
             return min(precioBase, max(precioBase - valorPromocion, 0))
-        case "MONTO_FIJO":
+        case TipoPromocion.montoFijo.rawValue:
             return min(precioBase, valorPromocion)
         default:
             return 0
@@ -287,9 +324,9 @@ class PromocionProducto {
 @Model
 class Kardex {
     var fecha: Date = Date()
-    var tipoMovimiento: String // "ENTRADA" (Compra) o "SALIDA" (Venta/Merma)
+    var tipoMovimiento: String
     var cantidad: Double
-    var concepto: String // Ej: "Entrega Lote #45 - Proveedor Juan"
+    var concepto: String
     var costoUnitarioEnEseMomento: Double
     
     var producto: Producto?
@@ -328,7 +365,7 @@ class Venta {
         total: Double = 0,
         empleado: Empleado,
         cliente: Cliente,
-        estadoFactura: String = "BORRADOR"
+        estadoFactura: String = EstadoFactura.borrador.rawValue
     ) {
         self.numeroFactura = numero
         self.subtotal = subtotal
@@ -343,11 +380,11 @@ class Venta {
     }
     
     var estaPagada: Bool {
-        estadoFactura == "PAGADA"
+        estadoFactura == EstadoFactura.pagada.rawValue
     }
     
     var sePuedeEditar: Bool {
-        estadoFactura != "PAGADA" && estadoFactura != "ANULADA"
+        estadoFactura != EstadoFactura.pagada.rawValue && estadoFactura != EstadoFactura.anulada.rawValue
     }
     
     func recalcularTotales(tasaImpuesto: Double = 0.15) {
@@ -359,9 +396,9 @@ class Venta {
 
 @Model
 class DetalleVenta {
-    var cantidad: Double  // Double para permitir kg, litros, etc.
+    var cantidad: Double
     var precioBaseSnapshot: Double
-    var precioUnitarioSnapshot: Double // Precio al que se vendió en ese momento exacto
+    var precioUnitarioSnapshot: Double
     var descuentoPromocionUnitario: Double
     var descuentoFidelidadUnitario: Double
     var promocionAplicadaNombre: String?
@@ -369,7 +406,6 @@ class DetalleVenta {
         return cantidad * precioUnitarioSnapshot
     }
     
-    // Relaciones
     var producto: Producto?
     var venta: Venta?
     @Relationship(deleteRule: .cascade) var consumos: [ConsumoLote] = []

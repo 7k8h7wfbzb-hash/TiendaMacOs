@@ -20,7 +20,7 @@ class VentaViewModel {
     func crearVenta(cliente: Cliente) throws -> Venta {
         guard let empleado = employeeSession.empleadoActual else { throw TiendaError.sesionRequerida }
         let numero = try siguienteNumeroFactura()
-        let venta = Venta(numero: numero, empleado: empleado, cliente: cliente, estadoFactura: "BORRADOR")
+        let venta = Venta(numero: numero, empleado: empleado, cliente: cliente)
         modelContext.insert(venta)
         OperacionLogger.registrar(
             modulo: "Ventas",
@@ -36,19 +36,19 @@ class VentaViewModel {
     func guardarVenta(_ venta: Venta) throws {
         venta.numeroFactura = venta.numeroFactura.trimmingCharacters(in: .whitespacesAndNewlines)
         venta.recalcularTotales(tasaImpuesto: tasaImpuesto)
-        guard !venta.numeroFactura.isEmpty else { return }
+        guard !venta.numeroFactura.isEmpty else { throw TiendaError.datosIncompletos }
 
         let numeroFactura = venta.numeroFactura
+        let ventaID = venta.persistentModelID
         let descriptor = FetchDescriptor<Venta>(
             predicate: #Predicate<Venta> { existente in
-                existente.numeroFactura == numeroFactura
+                existente.numeroFactura == numeroFactura && existente.persistentModelID != ventaID
             }
         )
         if try !modelContext.fetch(descriptor).isEmpty {
             throw TiendaError.facturaDuplicada
         }
 
-        modelContext.insert(venta)
         OperacionLogger.registrar(
             modulo: "Ventas",
             accion: "Guardar factura",
@@ -64,11 +64,12 @@ class VentaViewModel {
 
         for detalle in venta.detalles {
             if let producto = detalle.producto {
+                let costoLote = costoPromedioPonderado(detalle: detalle)
                 let movimiento = Kardex(
-                    tipo: "ENTRADA",
+                    tipo: TipoMovimiento.entrada.rawValue,
                     cantidad: detalle.cantidad,
                     concepto: "Reversion venta \(venta.numeroFactura) - \(producto.nombre)",
-                    costo: detalle.precioUnitarioSnapshot,
+                    costo: costoLote,
                     producto: producto,
                     empleado: employeeSession.empleadoActual
                 )
@@ -93,7 +94,7 @@ class VentaViewModel {
 
         venta.numeroFactura = venta.numeroFactura.trimmingCharacters(in: .whitespacesAndNewlines)
         venta.recalcularTotales(tasaImpuesto: tasaImpuesto)
-        guard !venta.numeroFactura.isEmpty else { return }
+        guard !venta.numeroFactura.isEmpty else { throw TiendaError.datosIncompletos }
 
         let numeroFactura = venta.numeroFactura
         let ventaID = venta.persistentModelID
@@ -117,9 +118,10 @@ class VentaViewModel {
     }
 
     func emitirFactura(_ venta: Venta) throws {
-        guard venta.estadoFactura == "BORRADOR", !venta.detalles.isEmpty else { throw TiendaError.facturaSinDetalle }
+        guard venta.estadoFactura == EstadoFactura.borrador.rawValue else { throw TiendaError.facturaNoEditable }
+        guard !venta.detalles.isEmpty else { throw TiendaError.facturaSinDetalle }
         venta.recalcularTotales(tasaImpuesto: tasaImpuesto)
-        venta.estadoFactura = "EMITIDA"
+        venta.estadoFactura = EstadoFactura.emitida.rawValue
         try ContabilidadService.registrarVentaEmitida(
             venta: venta,
             empleado: employeeSession.empleadoActual,
@@ -136,10 +138,10 @@ class VentaViewModel {
     }
 
     func marcarComoPagada(_ venta: Venta, metodoPago: String) throws {
-        guard venta.estadoFactura == "EMITIDA", venta.total > 0, !venta.detalles.isEmpty else { throw TiendaError.facturaSinDetalle }
+        guard venta.estadoFactura == EstadoFactura.emitida.rawValue, venta.total > 0, !venta.detalles.isEmpty else { throw TiendaError.facturaSinDetalle }
         let metodo = metodoPago.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !metodo.isEmpty else { throw TiendaError.metodoPagoRequerido }
-        venta.estadoFactura = "PAGADA"
+        venta.estadoFactura = EstadoFactura.pagada.rawValue
         venta.metodoPago = metodo
         venta.fechaPago = Date()
         try ContabilidadService.registrarCobroVenta(
@@ -162,11 +164,11 @@ class VentaViewModel {
     }
 
     func anularFactura(_ venta: Venta, motivo: String) throws {
-        guard venta.estadoFactura != "PAGADA", venta.estadoFactura != "ANULADA" else { throw TiendaError.facturaNoEditable }
+        guard venta.estadoFactura != EstadoFactura.pagada.rawValue, venta.estadoFactura != EstadoFactura.anulada.rawValue else { throw TiendaError.facturaNoEditable }
         let motivoLimpio = motivo.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !motivoLimpio.isEmpty else { throw TiendaError.motivoAnulacionRequerido }
 
-        if venta.estadoFactura == "EMITIDA" {
+        if venta.estadoFactura == EstadoFactura.emitida.rawValue {
             try ContabilidadService.registrarAnulacionVenta(
                 venta: venta,
                 empleado: employeeSession.empleadoActual,
@@ -177,11 +179,12 @@ class VentaViewModel {
         for detalle in venta.detalles {
             detalle.consumos.forEach { modelContext.delete($0) }
             if let producto = detalle.producto {
+                let costoLote = costoPromedioPonderado(detalle: detalle)
                 let movimiento = Kardex(
-                    tipo: "ENTRADA",
+                    tipo: TipoMovimiento.entrada.rawValue,
                     cantidad: detalle.cantidad,
                     concepto: "Anulacion factura \(venta.numeroFactura) - \(producto.nombre)",
-                    costo: detalle.precioUnitarioSnapshot,
+                    costo: costoLote,
                     producto: producto,
                     empleado: employeeSession.empleadoActual
                 )
@@ -189,7 +192,7 @@ class VentaViewModel {
             }
         }
 
-        venta.estadoFactura = "ANULADA"
+        venta.estadoFactura = EstadoFactura.anulada.rawValue
         venta.motivoAnulacion = motivoLimpio
         OperacionLogger.registrar(
             modulo: "Ventas",
@@ -212,5 +215,18 @@ class VentaViewModel {
             .max() ?? 0
 
         return String(format: "FAC-%06d", maximo + 1)
+    }
+
+    /// Calcula el costo promedio ponderado por lote de un detalle de venta
+    private func costoPromedioPonderado(detalle: DetalleVenta) -> Double {
+        let consumos = detalle.consumos
+        guard !consumos.isEmpty else { return 0 }
+        let costoTotal = consumos.reduce(0.0) { parcial, consumo in
+            guard let lote = consumo.lote else { return parcial }
+            let costoUnitario = lote.unidadesPorCaja > 0 ? lote.precioCompraCaja / lote.unidadesPorCaja : lote.precioCompraCaja
+            return parcial + (consumo.cantidad * costoUnitario)
+        }
+        let cantidadTotal = consumos.reduce(0.0) { $0 + $1.cantidad }
+        return cantidadTotal > 0 ? costoTotal / cantidadTotal : 0
     }
 }

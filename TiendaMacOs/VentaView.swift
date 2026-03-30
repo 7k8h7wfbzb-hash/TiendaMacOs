@@ -34,8 +34,6 @@ struct VentaView: View {
     @State private var mostrarConfirmacion = false
     @State private var mensajeError = ""
     @State private var mostrarError = false
-    @State private var metodoPago = "Efectivo"
-    @State private var motivoAnulacion = ""
     @State private var categoriaFiltroPadre: Categoria?
     @State private var subcategoriaFiltro: Categoria?
     
@@ -72,11 +70,11 @@ struct VentaView: View {
     }
     
     private var ventasPendientes: Int {
-        ventasFiltradas.filter { $0.estadoFactura == "EMITIDA" }.count
+        ventasFiltradas.filter { $0.estadoFactura == EstadoFactura.emitida.rawValue }.count
     }
     
     private var ventasPagadas: Int {
-        ventasFiltradas.filter { $0.estadoFactura == "PAGADA" }.count
+        ventasFiltradas.filter { $0.estadoFactura == EstadoFactura.pagada.rawValue }.count
     }
 
     private var ventasUltimosSieteDias: [VentaChartPoint] {
@@ -94,11 +92,11 @@ struct VentaView: View {
     }
 
     private var ventasPorEstado: [VentaEstadoPoint] {
-        let estados = ["BORRADOR", "EMITIDA", "PAGADA", "ANULADA"]
+        let estados = EstadoFactura.allCases
         return estados.map { estado in
             VentaEstadoPoint(
-                estado: estado,
-                cantidad: ventasFiltradas.filter { $0.estadoFactura == estado }.count
+                estado: estado.rawValue,
+                cantidad: ventasFiltradas.filter { $0.estadoFactura == estado.rawValue }.count
             )
         }
     }
@@ -300,13 +298,13 @@ struct VentaView: View {
 
     private func colorEstado(_ estado: String) -> Color {
         switch estado {
-        case "BORRADOR":
+        case EstadoFactura.borrador.rawValue:
             return .orange
-        case "EMITIDA":
+        case EstadoFactura.emitida.rawValue:
             return .blue
-        case "PAGADA":
+        case EstadoFactura.pagada.rawValue:
             return .green
-        case "ANULADA":
+        case EstadoFactura.anulada.rawValue:
             return .red
         default:
             return .secondary
@@ -316,107 +314,17 @@ struct VentaView: View {
     private var listaVentas: some View {
         List {
             ForEach(ventasFiltradas, id: \.persistentModelID) { venta in
-                HStack {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(venta.numeroFactura).font(.headline)
-                        HStack(spacing: 10) {
-                            badge(texto: venta.cliente?.nombre ?? "Sin cliente")
-                            badge(texto: venta.empleado?.nombre ?? "Sin empleado")
-                            badge(texto: "\(venta.detalles.count) detalles")
-                            badge(texto: venta.estadoFactura)
-                            if let metodoPago = venta.metodoPago, !metodoPago.isEmpty {
-                                badge(texto: metodoPago)
-                            }
-                        }
-                    }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Text(venta.fecha, format: .dateTime.day().month().year())
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text("Sub $\(String(format: "%.2f", venta.subtotal))")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text("Imp $\(String(format: "%.2f", venta.impuesto))")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text("$\(String(format: "%.2f", venta.total))")
-                            .font(.caption.weight(.semibold))
-                        if let fechaPago = venta.fechaPago {
-                            Text(fechaPago, format: .dateTime.day().month().year().hour().minute())
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Button("Abrir") {
-                        ventaActiva = venta
-                    }
-                    .tiendaSecondaryButton()
-                    .keyboardShortcut(.space, modifiers: [])
-                    .help("Abrir la factura para editar su detalle. Atajo: Espacio")
-
-                    Button("Emitir") {
-                        do {
-                            try viewModel?.emitirFactura(venta)
-                        } catch {
-                            presentar(error)
-                        }
-                    }
-                    .tiendaPrimaryButton()
-                    .disabled(venta.estadoFactura != "BORRADOR" || venta.detalles.isEmpty || venta.total <= 0)
-                    .keyboardShortcut("E", modifiers: [.command, .shift])
-                    .help("Emitir la factura seleccionada. Atajo: Comando Mayusculas E")
-
-                    Picker("Pago", selection: $metodoPago) {
-                        ForEach(metodosPago, id: \.self) { metodo in
-                            Text(metodo).tag(metodo)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: 130)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 8)
-                    .tiendaSecondaryGlass(cornerRadius: 14)
-
-                    Button("Pagar") {
-                        do {
-                            try viewModel?.marcarComoPagada(venta, metodoPago: metodoPago)
-                        } catch {
-                            presentar(error)
-                        }
-                    }
-                    .tiendaPrimaryButton()
-                    .disabled(venta.estadoFactura != "EMITIDA" || venta.total <= 0)
-                    .keyboardShortcut("P", modifiers: [.command, .shift])
-                    .help("Marcar la factura como pagada. Atajo: Comando Mayusculas P")
-
-                    campoMotivoAnulacion
-
-                    Button("Anular") {
-                        do {
-                            try viewModel?.anularFactura(venta, motivo: motivoAnulacion)
-                        } catch {
-                            presentar(error)
-                        }
-                    }
-                    .tiendaSecondaryButton()
-                    .disabled(venta.estadoFactura == "PAGADA" || venta.estadoFactura == "ANULADA" || motivoAnulacion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .help("Anular la factura actual usando el motivo indicado")
-
-                    Button {
+                VentaFilaView(
+                    venta: venta,
+                    viewModel: viewModel,
+                    metodosPago: metodosPago,
+                    onAbrir: { ventaActiva = venta },
+                    onEliminar: {
                         ventaAEliminar = venta
                         mostrarConfirmacion = true
-                    } label: {
-                        Image(systemName: "trash").foregroundStyle(.red).padding(8)
-                    }
-                    .tiendaSecondaryButton()
-                    .disabled(!venta.sePuedeEditar)
-                    .help("Eliminar la factura si aun se puede editar")
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .tiendaSecondaryGlass(cornerRadius: 20)
-                .tiendaSurfaceHighlight(cornerRadius: 20)
+                    },
+                    onError: { presentar($0) }
+                )
                 .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
@@ -504,39 +412,6 @@ struct VentaView: View {
         .tiendaSurfaceHighlight(cornerRadius: 22)
     }
 
-    private func campo(_ titulo: String, icono: String, texto: Binding<String>, width: CGFloat = 120) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icono).foregroundStyle(.orange)
-            TextField(titulo, text: texto).textFieldStyle(.plain)
-        }
-        .frame(width: width)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 12)
-        .tiendaSecondaryGlass(cornerRadius: 16)
-    }
-    
-    private var campoMotivoAnulacion: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "exclamationmark.bubble.fill")
-                .foregroundStyle(.orange)
-            TextField("Motivo anulacion", text: $motivoAnulacion)
-                .textFieldStyle(.plain)
-        }
-        .frame(width: 180)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 12)
-        .tiendaSecondaryGlass(cornerRadius: 16)
-    }
-
-    private func badge(texto: String) -> some View {
-        Text(texto)
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .tiendaSecondaryGlass(cornerRadius: 12)
-    }
-
     private func guardarVenta() {
         guard let clienteSeleccionado else { return }
         do {
@@ -556,6 +431,137 @@ struct VentaView: View {
     private func presentar(_ error: Error) {
         mensajeError = error.localizedDescription
         mostrarError = true
+    }
+}
+
+// MARK: - Fila individual con estado propio
+
+private struct VentaFilaView: View {
+    let venta: Venta
+    let viewModel: VentaViewModel?
+    let metodosPago: [String]
+    let onAbrir: () -> Void
+    let onEliminar: () -> Void
+    let onError: (Error) -> Void
+
+    @State private var metodoPago = "Efectivo"
+    @State private var motivoAnulacion = ""
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(venta.numeroFactura).font(.headline)
+                HStack(spacing: 10) {
+                    badge(texto: venta.cliente?.nombre ?? "Sin cliente")
+                    badge(texto: venta.empleado?.nombre ?? "Sin empleado")
+                    badge(texto: "\(venta.detalles.count) detalles")
+                    badge(texto: venta.estadoFactura)
+                    if let metodo = venta.metodoPago, !metodo.isEmpty {
+                        badge(texto: metodo)
+                    }
+                }
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(venta.fecha, format: .dateTime.day().month().year())
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Sub $\(String(format: "%.2f", venta.subtotal))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Imp $\(String(format: "%.2f", venta.impuesto))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("$\(String(format: "%.2f", venta.total))")
+                    .font(.caption.weight(.semibold))
+                if let fechaPago = venta.fechaPago {
+                    Text(fechaPago, format: .dateTime.day().month().year().hour().minute())
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Button("Abrir") { onAbrir() }
+                .tiendaSecondaryButton()
+                .help("Abrir la factura para editar su detalle")
+
+            Button("Emitir") {
+                do {
+                    try viewModel?.emitirFactura(venta)
+                } catch {
+                    onError(error)
+                }
+            }
+            .tiendaPrimaryButton()
+            .disabled(venta.estadoFactura != EstadoFactura.borrador.rawValue || venta.detalles.isEmpty || venta.total <= 0)
+            .help("Emitir la factura seleccionada")
+
+            Picker("Pago", selection: $metodoPago) {
+                ForEach(metodosPago, id: \.self) { metodo in
+                    Text(metodo).tag(metodo)
+                }
+            }
+            .labelsHidden()
+            .frame(width: 130)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 8)
+            .tiendaSecondaryGlass(cornerRadius: 14)
+
+            Button("Pagar") {
+                do {
+                    try viewModel?.marcarComoPagada(venta, metodoPago: metodoPago)
+                } catch {
+                    onError(error)
+                }
+            }
+            .tiendaPrimaryButton()
+            .disabled(venta.estadoFactura != EstadoFactura.emitida.rawValue || venta.total <= 0)
+            .help("Marcar la factura como pagada")
+
+            HStack(spacing: 10) {
+                Image(systemName: "exclamationmark.bubble.fill")
+                    .foregroundStyle(.orange)
+                TextField("Motivo anulacion", text: $motivoAnulacion)
+                    .textFieldStyle(.plain)
+            }
+            .frame(width: 180)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
+            .tiendaSecondaryGlass(cornerRadius: 16)
+
+            Button("Anular") {
+                do {
+                    try viewModel?.anularFactura(venta, motivo: motivoAnulacion)
+                    motivoAnulacion = ""
+                } catch {
+                    onError(error)
+                }
+            }
+            .tiendaSecondaryButton()
+            .disabled(venta.estadoFactura == EstadoFactura.pagada.rawValue || venta.estadoFactura == EstadoFactura.anulada.rawValue || motivoAnulacion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .help("Anular la factura actual usando el motivo indicado")
+
+            Button {
+                onEliminar()
+            } label: {
+                Image(systemName: "trash").foregroundStyle(.red).padding(8)
+            }
+            .tiendaSecondaryButton()
+            .disabled(!venta.sePuedeEditar)
+            .help("Eliminar la factura si aun se puede editar")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .tiendaSecondaryGlass(cornerRadius: 20)
+        .tiendaSurfaceHighlight(cornerRadius: 20)
+    }
+
+    private func badge(texto: String) -> some View {
+        Text(texto)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .tiendaSecondaryGlass(cornerRadius: 12)
     }
 }
 

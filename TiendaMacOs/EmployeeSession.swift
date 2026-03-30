@@ -15,13 +15,14 @@ final class EmployeeSession {
     }
     
     func iniciarSesion(usuario: String, pin: String, modelContext: ModelContext) throws {
-        let usuarioLimpio = usuario.trimmingCharacters(in: .whitespacesAndNewlines)
+        let usuarioLimpio = usuario.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let pinLimpio = pin.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !usuarioLimpio.isEmpty, !pinLimpio.isEmpty else { throw TiendaError.credencialesIncompletas }
         
+        let pinHash = Empleado.hashPin(pinLimpio)
         let descriptor = FetchDescriptor<Empleado>(
             predicate: #Predicate<Empleado> { empleado in
-                empleado.usuario == usuarioLimpio && empleado.pinAcceso == pinLimpio
+                empleado.usuario == usuarioLimpio && empleado.pinAcceso == pinHash
             }
         )
         
@@ -81,15 +82,19 @@ final class EmployeeSession {
             modelContext: modelContext
         )
         
-        empleadoActual = empleado
         OperacionLogger.registrar(
             modulo: "Seguridad",
             accion: "Registro de acceso",
             detalle: "Se registro el empleado \(empleado.nombre) desde la pantalla de acceso.",
-            empleado: empleado,
+            empleado: employeeSession_empleadoActualParaLog,
             modelContext: modelContext
         )
         try modelContext.save()
+    }
+    
+    /// Referencia al empleado actual para el log (sin cambiar la sesion)
+    private var employeeSession_empleadoActualParaLog: Empleado? {
+        empleadoActual
     }
     
     private func crearEmpleadoConAcceso(
@@ -117,7 +122,8 @@ final class EmployeeSession {
             throw TiendaError.usuarioDuplicado
         }
         
-        let empleado = Empleado(nombre: nombreLimpio, cargo: cargoLimpio, usuario: usuarioLimpio, pinAcceso: pinLimpio)
+        let pinHash = Empleado.hashPin(pinLimpio)
+        let empleado = Empleado(nombre: nombreLimpio, cargo: cargoLimpio, usuario: usuarioLimpio, pinAcceso: pinHash)
         modelContext.insert(empleado)
         return empleado
     }

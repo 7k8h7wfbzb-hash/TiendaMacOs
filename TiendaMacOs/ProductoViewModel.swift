@@ -24,7 +24,9 @@ class ProductoViewModel {
         producto.detalleProducto = producto.detalleProducto.trimmingCharacters(in: .whitespacesAndNewlines)
         producto.estadoFisico = producto.estadoFisico.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard !producto.nombre.isEmpty, !producto.estadoFisico.isEmpty, !producto.unidadMedida.isEmpty else { return }
+        guard !producto.nombre.isEmpty, !producto.estadoFisico.isEmpty, !producto.unidadMedida.isEmpty else {
+            throw TiendaError.datosIncompletos
+        }
 
         modelContext.insert(producto)
         OperacionLogger.registrar(
@@ -59,7 +61,9 @@ class ProductoViewModel {
         producto.detalleProducto = producto.detalleProducto.trimmingCharacters(in: .whitespacesAndNewlines)
         producto.estadoFisico = producto.estadoFisico.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard !producto.nombre.isEmpty, !producto.estadoFisico.isEmpty, !producto.unidadMedida.isEmpty else { return }
+        guard !producto.nombre.isEmpty, !producto.estadoFisico.isEmpty, !producto.unidadMedida.isEmpty else {
+            throw TiendaError.datosIncompletos
+        }
 
         OperacionLogger.registrar(
             modulo: "Productos",

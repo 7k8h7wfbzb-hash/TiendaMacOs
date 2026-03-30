@@ -6,17 +6,71 @@ class CuentaContable {
     var codigo: String
     var nombre: String
     var tipo: String
+    var activa: Bool
     @Relationship(deleteRule: .nullify) var movimientos: [DetalleAsientoContable] = []
 
-    init(codigo: String, nombre: String, tipo: String) {
+    init(codigo: String, nombre: String, tipo: String, activa: Bool = true) {
         self.codigo = codigo
         self.nombre = nombre
         self.tipo = tipo
+        self.activa = activa
     }
 
     var saldoActual: Double {
-        movimientos.reduce(0) { acumulado, movimiento in
+        let bruto = movimientos.reduce(0) { acumulado, movimiento in
             acumulado + movimiento.debito - movimiento.credito
+        }
+        switch tipo {
+        case TipoCuenta.pasivo.rawValue, TipoCuenta.ingreso.rawValue, TipoCuenta.patrimonio.rawValue:
+            return -bruto
+        default:
+            return bruto
+        }
+    }
+
+    /// Calcula el saldo considerando solo movimientos hasta una fecha de corte
+    func saldoAlCorte(_ fecha: Date) -> Double {
+        let movimientosFiltrados = movimientos.filter { movimiento in
+            guard let asiento = movimiento.asiento else { return false }
+            return asiento.fecha <= fecha
+        }
+        let bruto = movimientosFiltrados.reduce(0) { acumulado, movimiento in
+            acumulado + movimiento.debito - movimiento.credito
+        }
+        switch tipo {
+        case TipoCuenta.pasivo.rawValue, TipoCuenta.ingreso.rawValue, TipoCuenta.patrimonio.rawValue:
+            return -bruto
+        default:
+            return bruto
+        }
+    }
+
+    /// Calcula debitos totales en un rango de fechas
+    func debitosEnRango(desde: Date, hasta: Date) -> Double {
+        movimientos.filter { movimiento in
+            guard let asiento = movimiento.asiento else { return false }
+            return asiento.fecha >= desde && asiento.fecha <= hasta
+        }
+        .reduce(0) { $0 + $1.debito }
+    }
+
+    /// Calcula creditos totales en un rango de fechas
+    func creditosEnRango(desde: Date, hasta: Date) -> Double {
+        movimientos.filter { movimiento in
+            guard let asiento = movimiento.asiento else { return false }
+            return asiento.fecha >= desde && asiento.fecha <= hasta
+        }
+        .reduce(0) { $0 + $1.credito }
+    }
+
+    /// Saldo neto en un rango (para estado de resultados)
+    func saldoEnRango(desde: Date, hasta: Date) -> Double {
+        let bruto = debitosEnRango(desde: desde, hasta: hasta) - creditosEnRango(desde: desde, hasta: hasta)
+        switch tipo {
+        case TipoCuenta.pasivo.rawValue, TipoCuenta.ingreso.rawValue, TipoCuenta.patrimonio.rawValue:
+            return -bruto
+        default:
+            return bruto
         }
     }
 }
@@ -44,6 +98,14 @@ class AsientoContable {
 
     var totalCredito: Double {
         detalles.reduce(0) { $0 + $1.credito }
+    }
+
+    var estaBalanceado: Bool {
+        abs(totalDebito - totalCredito) < 0.01
+    }
+
+    var esManual: Bool {
+        modulo == "Manual"
     }
 }
 
