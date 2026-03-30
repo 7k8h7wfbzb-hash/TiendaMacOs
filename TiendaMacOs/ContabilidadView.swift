@@ -335,7 +335,7 @@ private struct SeccionPlanCuentasView: View {
                 TableColumn("Saldo") { cuenta in
                     Text("$\(String(format: "%.2f", cuenta.saldoActual))")
                         .font(.system(.body, design: .monospaced))
-                        .foregroundStyle(cuenta.saldoActual >= 0 ? .primary : .red)
+                        .foregroundStyle(cuenta.saldoActual >= 0 ? Color.primary : Color.red)
                 }
                 .width(min: 100, ideal: 120)
                 TableColumn("Estado") { cuenta in
@@ -624,6 +624,16 @@ private struct SeccionDiarioGeneralView: View {
 
 // MARK: - 4. Libro Mayor
 
+private struct FilaLibroMayor: Identifiable {
+    let id = UUID()
+    let fecha: Date
+    let concepto: String
+    let referencia: String
+    let debito: Double
+    let credito: Double
+    let saldoAcumulado: Double
+}
+
 private struct SeccionLibroMayorView: View {
     let cuentas: [CuentaContable]
 
@@ -631,7 +641,7 @@ private struct SeccionLibroMayorView: View {
     @State private var fechaDesde = Calendar.current.date(byAdding: .month, value: -3, to: Date()) ?? Date()
     @State private var fechaHasta = Date()
 
-    private var movimientosFiltrados: [(detalle: DetalleAsientoContable, saldoAcumulado: Double)] {
+    private var movimientosFiltrados: [FilaLibroMayor] {
         guard let cuenta = cuentaSeleccionada else { return [] }
         let movimientos = cuenta.movimientos
             .filter { movimiento in
@@ -651,7 +661,14 @@ private struct SeccionLibroMayorView: View {
             } else {
                 saldo += detalle.debito - detalle.credito
             }
-            return (detalle: detalle, saldoAcumulado: saldo)
+            return FilaLibroMayor(
+                fecha: detalle.asiento?.fecha ?? Date(),
+                concepto: detalle.asiento?.concepto ?? "",
+                referencia: detalle.asiento?.referencia ?? "",
+                debito: detalle.debito,
+                credito: detalle.credito,
+                saldoAcumulado: saldo
+            )
         }
     }
 
@@ -689,27 +706,27 @@ private struct SeccionLibroMayorView: View {
             } else if movimientosFiltrados.isEmpty {
                 estadoVacio(icono: "doc.text.magnifyingglass", titulo: "Sin movimientos", detalle: "La cuenta seleccionada no tiene movimientos en el rango de fechas indicado.")
             } else {
-                Table(movimientosFiltrados, id: \.detalle.persistentModelID) {
+                Table(movimientosFiltrados) {
                     TableColumn("Fecha") { item in
-                        Text(item.detalle.asiento?.fecha ?? Date(), format: .dateTime.day().month().year())
+                        Text(item.fecha, format: .dateTime.day().month().year())
                             .font(.caption)
                     }
                     .width(min: 80, ideal: 100)
                     TableColumn("Concepto") { item in
-                        Text(item.detalle.asiento?.concepto ?? "")
+                        Text(item.concepto)
                     }
                     TableColumn("Referencia") { item in
-                        Text(item.detalle.asiento?.referencia ?? "")
+                        Text(item.referencia)
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     .width(min: 120, ideal: 160)
                     TableColumn("Débito") { item in
-                        Text(item.detalle.debito > 0 ? "$\(String(format: "%.2f", item.detalle.debito))" : "")
+                        Text(item.debito > 0 ? "$\(String(format: "%.2f", item.debito))" : "")
                             .font(.system(.body, design: .monospaced)).foregroundStyle(.green)
                     }
                     .width(min: 80, ideal: 100)
                     TableColumn("Crédito") { item in
-                        Text(item.detalle.credito > 0 ? "$\(String(format: "%.2f", item.detalle.credito))" : "")
+                        Text(item.credito > 0 ? "$\(String(format: "%.2f", item.credito))" : "")
                             .font(.system(.body, design: .monospaced)).foregroundStyle(.red)
                     }
                     .width(min: 80, ideal: 100)

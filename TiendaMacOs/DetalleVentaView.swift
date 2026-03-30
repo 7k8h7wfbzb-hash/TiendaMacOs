@@ -196,7 +196,7 @@ struct DetalleVentaView: View {
                         }
                     }
                     .tiendaPrimaryButton()
-                    .disabled(venta.estadoFactura != "BORRADOR" || venta.detalles.isEmpty || venta.total <= 0)
+                    .disabled(venta.estadoFactura != EstadoFactura.borrador.rawValue || venta.detalles.isEmpty || venta.total <= 0)
                     .keyboardShortcut("E", modifiers: [.command, .shift])
                     .help("Emitir esta factura. Atajo: Comando Mayusculas E")
                 }
@@ -221,7 +221,7 @@ struct DetalleVentaView: View {
                         }
                     }
                     .tiendaPrimaryButton()
-                    .disabled(venta.estadoFactura != "EMITIDA" || venta.total <= 0)
+                    .disabled(venta.estadoFactura != EstadoFactura.emitida.rawValue || venta.total <= 0)
                     .keyboardShortcut("P", modifiers: [.command, .shift])
                     .help("Registrar el pago de esta factura. Atajo: Comando Mayusculas P")
 
@@ -236,7 +236,7 @@ struct DetalleVentaView: View {
                     }
                     .tiendaSecondaryButton()
                     .help("Anular la factura con el motivo indicado")
-                    .disabled(venta.estadoFactura == "PAGADA" || venta.estadoFactura == "ANULADA" || motivoAnulacion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(venta.estadoFactura == EstadoFactura.pagada.rawValue || venta.estadoFactura == EstadoFactura.anulada.rawValue || motivoAnulacion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
                     Spacer(minLength: 0)
 
@@ -528,13 +528,13 @@ struct DetalleVentaView: View {
     
     private var colorEstadoFactura: Color {
         switch venta.estadoFactura {
-        case "BORRADOR":
+        case EstadoFactura.borrador.rawValue:
             return .orange
-        case "EMITIDA":
+        case EstadoFactura.emitida.rawValue:
             return .blue
-        case "PAGADA":
+        case EstadoFactura.pagada.rawValue:
             return .green
-        case "ANULADA":
+        case EstadoFactura.anulada.rawValue:
             return .red
         default:
             return .secondary

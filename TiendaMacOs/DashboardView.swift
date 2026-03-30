@@ -232,6 +232,8 @@ struct DashboardView: View {
             KardexView()
         case .cuentasPorCobrar:
             CuentasPorCobrarView()
+        case .cuentasPorPagar:
+            CuentasPorPagarView()
         case .reportes:
             ReporteDiarioView()
         case .bitacora:
@@ -252,6 +254,7 @@ private enum SeccionDashboard: String, CaseIterable, Identifiable {
     case ventas
     case kardex
     case cuentasPorCobrar
+    case cuentasPorPagar
     case reportes
     case bitacora
 
@@ -281,7 +284,7 @@ private enum SeccionDashboard: String, CaseIterable, Identifiable {
             return "⌘8"
         case .bitacora:
             return "⌘9"
-        case .cuentasPorCobrar, .reportes:
+        case .cuentasPorCobrar, .cuentasPorPagar, .reportes:
             return nil
         }
     }
@@ -310,6 +313,8 @@ private enum SeccionDashboard: String, CaseIterable, Identifiable {
             return "Kardex"
         case .cuentasPorCobrar:
             return "Cuentas por Cobrar"
+        case .cuentasPorPagar:
+            return "Cuentas por Pagar"
         case .reportes:
             return "Reporte Diario"
         case .bitacora:
@@ -341,6 +346,8 @@ private enum SeccionDashboard: String, CaseIterable, Identifiable {
             return "Sigue movimientos"
         case .cuentasPorCobrar:
             return "Controla pendientes"
+        case .cuentasPorPagar:
+            return "Pagos a proveedores"
         case .reportes:
             return "Cierre del dia"
         case .bitacora:
@@ -372,6 +379,8 @@ private enum SeccionDashboard: String, CaseIterable, Identifiable {
             return "arrow.left.arrow.right.circle.fill"
         case .cuentasPorCobrar:
             return "creditcard.and.123"
+        case .cuentasPorPagar:
+            return "banknote.fill"
         case .reportes:
             return "chart.bar.xaxis"
         case .bitacora:
@@ -410,6 +419,8 @@ private enum SeccionDashboard: String, CaseIterable, Identifiable {
             return .red
         case .cuentasPorCobrar:
             return .yellow
+        case .cuentasPorPagar:
+            return .teal
         case .reportes:
             return .purple
         case .bitacora:
@@ -444,7 +455,7 @@ private extension View {
             keyboardShortcut("8", modifiers: .command)
         case .bitacora:
             keyboardShortcut("9", modifiers: .command)
-        case .cuentasPorCobrar, .reportes:
+        case .cuentasPorCobrar, .cuentasPorPagar, .reportes:
             self
         }
     }

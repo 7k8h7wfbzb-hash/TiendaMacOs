@@ -44,6 +44,14 @@ enum TipoMovimiento: String, Codable, CaseIterable {
     case salida = "SALIDA"
 }
 
+enum TipoCuenta: String, Codable, CaseIterable {
+    case activo = "ACTIVO"
+    case pasivo = "PASIVO"
+    case patrimonio = "PATRIMONIO"
+    case ingreso = "INGRESO"
+    case gasto = "GASTO"
+}
+
 // MARK: - 1. SISTEMA DE PERSONAS
 @Model
 class Empleado {
@@ -60,6 +68,10 @@ class Empleado {
         self.cargo = cargo
         self.usuario = usuario
         self.pinAcceso = pinAcceso
+    }
+
+    var esAdministrador: Bool {
+        cargo.localizedCaseInsensitiveContains("Administrador")
     }
 
     static func hashPin(_ pin: String) -> String {

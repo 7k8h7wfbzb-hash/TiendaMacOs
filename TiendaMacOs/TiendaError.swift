@@ -24,6 +24,12 @@ enum TiendaError: LocalizedError {
     case loteNoDisponibleParaDevolucion
     case datosIncompletos
     case movimientoInvalido
+    case asientoDesbalanceado
+    case cuentaInactiva
+    case cuentaConMovimientos
+    case codigoCuentaDuplicado
+    case asientoNoEliminable
+    case permisoInsuficiente
 
     var errorDescription: String? {
         switch self {
@@ -63,6 +69,18 @@ enum TiendaError: LocalizedError {
             return "Faltan datos obligatorios para completar la operación."
         case .movimientoInvalido:
             return "El movimiento de inventario no tiene datos válidos."
+        case .asientoDesbalanceado:
+            return "El asiento contable no está balanceado. Los débitos deben ser iguales a los créditos."
+        case .cuentaInactiva:
+            return "La cuenta contable está inactiva y no puede recibir movimientos."
+        case .cuentaConMovimientos:
+            return "No puedes eliminar una cuenta contable que ya tiene movimientos registrados."
+        case .codigoCuentaDuplicado:
+            return "Ya existe una cuenta contable con ese código."
+        case .asientoNoEliminable:
+            return "Solo se pueden eliminar asientos manuales."
+        case .permisoInsuficiente:
+            return "No tienes permisos para realizar esta operación. Solo los administradores pueden ejecutar esta acción."
         }
     }
 }

@@ -141,7 +141,9 @@ struct VentaView: View {
         }
         .onAppear {
             if viewModel == nil { viewModel = VentaViewModel(modelContext: modelContext, employeeSession: employeeSession) }
-            if clienteSeleccionado == nil { clienteSeleccionado = clientes.first }
+            if clienteSeleccionado == nil {
+                clienteSeleccionado = clientes.first { $0.nombre == "Consumidor Final" } ?? clientes.first
+            }
             refrescarSiguienteFactura()
         }
         .onChange(of: categoriaFiltroPadre) {

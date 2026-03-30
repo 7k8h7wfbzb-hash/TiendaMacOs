@@ -164,6 +164,7 @@ class VentaViewModel {
     }
 
     func anularFactura(_ venta: Venta, motivo: String) throws {
+        guard employeeSession.empleadoActual?.esAdministrador == true else { throw TiendaError.permisoInsuficiente }
         guard venta.estadoFactura != EstadoFactura.pagada.rawValue, venta.estadoFactura != EstadoFactura.anulada.rawValue else { throw TiendaError.facturaNoEditable }
         let motivoLimpio = motivo.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !motivoLimpio.isEmpty else { throw TiendaError.motivoAnulacionRequerido }
@@ -205,14 +206,16 @@ class VentaViewModel {
     }
 
     func siguienteNumeroFactura() throws -> String {
-        let ventas = try modelContext.fetch(FetchDescriptor<Venta>())
-        let maximo = ventas
-            .compactMap { venta -> Int? in
-                let componentes = venta.numeroFactura.split(separator: "-")
-                guard let ultimo = componentes.last else { return nil }
-                return Int(ultimo)
-            }
-            .max() ?? 0
+        var descriptor = FetchDescriptor<Venta>(
+            sortBy: [SortDescriptor(\Venta.numeroFactura, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        let ultimaVenta = try modelContext.fetch(descriptor).first
+        let maximo = ultimaVenta.flatMap { venta -> Int? in
+            let componentes = venta.numeroFactura.split(separator: "-")
+            guard let ultimo = componentes.last else { return nil }
+            return Int(ultimo)
+        } ?? 0
 
         return String(format: "FAC-%06d", maximo + 1)
     }

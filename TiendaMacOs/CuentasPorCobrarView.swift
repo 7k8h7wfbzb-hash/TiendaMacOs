@@ -10,7 +10,7 @@ struct CuentasPorCobrarView: View {
     @Query(sort: \Venta.fecha, order: .reverse) private var ventas: [Venta]
 
     private var pendientes: [Venta] {
-        ventas.filter { $0.estadoFactura == "EMITIDA" }
+        ventas.filter { $0.estadoFactura == EstadoFactura.emitida.rawValue }
     }
 
     private var totalPendiente: Double {

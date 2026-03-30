@@ -101,7 +101,8 @@ struct LoteProductoView: View {
         valorDouble(unidadesPorCaja) >= 0 &&
         valorDouble(unidadesSueltas) >= 0 &&
         valorDouble(precioCompra) >= 0 &&
-        valorDouble(precioVenta) >= 0
+        valorDouble(precioVenta) >= 0 &&
+        (valorDouble(cantidadCajas) * valorDouble(unidadesPorCaja) + valorDouble(unidadesSueltas)) > 0
     }
 
     private var encabezado: some View {
@@ -121,7 +122,7 @@ struct LoteProductoView: View {
                     HStack(spacing: 12) {
                         estadisticaCard(valor: "\(lotes.count)", titulo: lotes.count == 1 ? "lote" : "lotes")
                         estadisticaCard(valor: String(format: "%.0f", lotes.reduce(0) { $0 + $1.totalUnidades }), titulo: "unidades")
-                        estadisticaCard(valor: "\(lotes.filter { $0.estadoLote == "CADUCADO" }.count)", titulo: "caducados")
+                        estadisticaCard(valor: "\(lotes.filter { $0.estadoLote == EstadoLote.caducado.rawValue }.count)", titulo: "caducados")
                     }
                 }
 
@@ -228,11 +229,11 @@ struct LoteProductoView: View {
                     Text(lote.fechaIngreso, format: .dateTime.day().month().year())
                 }
                 TableColumn("Devolucion") { lote in
-                    let puedeDevolverse = lote.sePuedeDevolverAProveedor && lote.estadoLote != "DEVUELTO"
+                    let puedeDevolverse = lote.sePuedeDevolverAProveedor && lote.estadoLote != EstadoLote.devuelto.rawValue
                     Button("Devolver") {
                         loteADevolver = lote
                         if motivoDevolucion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            motivoDevolucion = lote.estadoLote == "CADUCADO" ? "Producto caducado" : "Devolucion a proveedor"
+                            motivoDevolucion = lote.estadoLote == EstadoLote.caducado.rawValue ? "Producto caducado" : "Devolucion a proveedor"
                         }
                         mostrarDialogoDevolucion = true
                     }
@@ -413,11 +414,11 @@ struct LoteProductoView: View {
 
     private func colorEstadoLote(_ estado: String) -> Color {
         switch estado {
-        case "CADUCADO":
+        case EstadoLote.caducado.rawValue:
             return .red
-        case "PROXIMO":
+        case EstadoLote.proximo.rawValue:
             return .orange
-        case "DEVUELTO":
+        case EstadoLote.devuelto.rawValue:
             return .secondary
         default:
             return .green

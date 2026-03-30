@@ -23,14 +23,14 @@ class LoteProductoViewModel {
               lote.precioCompraCaja >= 0,
               lote.precioVentaSugerido >= 0,
               !lote.tipoEmpaque.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        else { return }
+        else { throw TiendaError.datosIncompletos }
 
         lote.tipoEmpaque = lote.tipoEmpaque.trimmingCharacters(in: .whitespacesAndNewlines)
         modelContext.insert(lote)
 
         if let producto = lote.producto {
             let movimiento = Kardex(
-                tipo: "ENTRADA",
+                tipo: TipoMovimiento.entrada.rawValue,
                 cantidad: lote.totalUnidades,
                 concepto: "Ingreso de lote \(lote.idLote) - \(lote.proveedor?.nombre ?? "Proveedor sin nombre")",
                 costo: lote.precioCompraCaja,
@@ -66,7 +66,7 @@ class LoteProductoViewModel {
 
         if let producto = lote.producto {
             let movimiento = Kardex(
-                tipo: "SALIDA",
+                tipo: TipoMovimiento.salida.rawValue,
                 cantidad: lote.totalUnidades,
                 concepto: "Devolucion a proveedor del lote \(lote.idLote) - \(lote.proveedor?.nombre ?? "Proveedor sin nombre")",
                 costo: lote.precioCompraCaja,
@@ -91,7 +91,7 @@ class LoteProductoViewModel {
             guard lote.consumos.isEmpty, producto.stockActual >= lote.totalUnidades else { throw TiendaError.loteConConsumos }
 
             let movimiento = Kardex(
-                tipo: "SALIDA",
+                tipo: TipoMovimiento.salida.rawValue,
                 cantidad: lote.totalUnidades,
                 concepto: "Reversion de lote \(lote.idLote) - \(lote.proveedor?.nombre ?? "Proveedor sin nombre")",
                 costo: lote.precioCompraCaja,

@@ -86,15 +86,10 @@ final class EmployeeSession {
             modulo: "Seguridad",
             accion: "Registro de acceso",
             detalle: "Se registro el empleado \(empleado.nombre) desde la pantalla de acceso.",
-            empleado: employeeSession_empleadoActualParaLog,
+            empleado: empleadoActual,
             modelContext: modelContext
         )
         try modelContext.save()
-    }
-    
-    /// Referencia al empleado actual para el log (sin cambiar la sesion)
-    private var employeeSession_empleadoActualParaLog: Empleado? {
-        empleadoActual
     }
     
     private func crearEmpleadoConAcceso(
